@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Information - HRA System</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .info-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .info-header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .info-header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+        
+        .info-header p {
+            margin: 10px 0 0 0;
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .info-section {
+            background: white;
+            margin: 30px 0;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        
+        .info-section h2 {
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+        
+        .info-section h3 {
+            color: #555;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .info-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .info-list li {
+            background: #f8f9fa;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+        
+        .info-list li:hover {
+            background: #e3f2fd;
+            transform: translateX(5px);
+        }
+        
+        .image-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .image-item {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .image-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+        
+        .image-item img {
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            transition: all 0.3s ease;
+        }
+        
+        .image-item:hover img {
+            transform: scale(1.05);
+        }
+        
+        .image-caption {
+            padding: 15px;
+            background: #f8f9fa;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
+        }
+        
+        .modal-content {
+            margin: auto;
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
+            margin-top: 5%;
+            border-radius: 10px;
+        }
+        
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #667eea;
+        }
+        
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            margin-bottom: 30px;
+        }
+        
+        .back-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+        
+        .feature-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(240, 147, 251, 0.3);
+        }
+        
+        .feature-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            display: block;
+        }
+        
+        @media (max-width: 768px) {
+            .info-container {
+                padding: 10px;
+            }
+            
+            .info-header {
+                padding: 20px 15px;
+            }
+            
+            .info-header h1 {
+                font-size: 2em;
+            }
+            
+            .info-section {
+                padding: 20px 15px;
+            }
+            
+            .image-gallery {
+                grid-template-columns: 1fr;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="info-container">
+        <a href="index.html" class="back-button">
+            <span>←</span> Tillbaka till HRA System
+        </a>
+        
+        <div class="info-header">
+            <h1>🏗️ HRA - Högriskarbete System</h1>
+            <p>Komplett informationsguide för säkerhetshantering</p>
+        </div>
+        
+        <div class="info-section">
+            <h2>📋 Vad är HRA?</h2>
+            <p><strong>HRA (Högriskarbete)</strong> är Volvo Cars säkerhetssystem för hantering av riskfyllda arbetsuppgifter. Systemet säkerställer att alla högriskarbeten bedöms, godkänns och dokumenteras enligt företagets säkerhetsstandarder.</p>
+            
+            <h3>🎯 Systemets syfte:</h3>
+            <ul class="info-list">
+                <li><strong>Förebygga olyckor</strong> - Identifiera och minimera risker innan arbetet påbörjas</li>
+                <li><strong>Säkerställa compliance</strong> - Följ alla säkerhetsregler och föreskrifter</li>
+                <li><strong>Dokumentera processer</strong> - Skapa en fullständig auditspår för alla aktiviteter</li>
+                <li><strong>Förbättra säkerhetskultur</strong> - Öka medvetenhet och ansvar för säkerhet</li>
+            </ul>
+        </div>
+        
+        <div class="info-section">
+            <h2>👥 Användarroller</h2>
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">🔧</span>
+                    <h3>Underhåll</h3>
+                    <p>Skapar och skickar in riskbedömningar för godkännande</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">👷</span>
+                    <h3>Supervisor</h3>
+                    <p>Granskar och godkänner riskbedömningar från underhållspersonal</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">👨‍💼</span>
+                    <h3>Superintendent</h3>
+                    <p>Övervakar hela processen och har full godkännandebehörighet</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">👔</span>
+                    <h3>Arbets Ledare</h3>
+                    <p>Ny roll som godkänner alla riskbedömningar innan arbetet kan påbörjas</p>
+                </div>
+                <div class="feature-card">
+                    <span class="feature-icon">⚙️</span>
+                    <h3>Admin</h3>
+                    <p>Fullständig systemåtkomst och användarhantering</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h2>🔄 Godkännandeprocess</h2>
+            <ul class="info-list">
+                <li><strong>Steg 1:</strong> Användare skapar ny riskbedömning → Status: "Pending"</li>
+                <li><strong>Steg 2:</strong> Alla Arbets Ledare får automatisk notifikation</li>
+                <li><strong>Steg 3:</strong> Arbets Ledare granskar bedömningen i Dashboard</li>
+                <li><strong>Steg 4:</strong> Godkänn (✓) eller Avvisa (✗) med kommentar</li>
+                <li><strong>Steg 5:</strong> Skaparen får omedelbar notifikation om beslutet</li>
+                <li><strong>Steg 6:</strong> Godkänd bedömning kan exporteras till PDF och SharePoint</li>
+            </ul>
+        </div>
+        
+        <div class="info-section">
+            <h2>📱 Systemfunktioner</h2>
+            <h3>🔔 Notifikationssystem</h3>
+            <ul class="info-list">
+                <li>Realtidsnotifikationer med automatisk uppdatering var 30:e sekund</li>
+                <li>Visuell indikator (röd badge) för olästa meddelanden</li>
+                <li>Olika meddelandetyper: Väntande bedömning, Godkänd, Avvisad</li>
+                <li>Klicka för att markera som läst, eller "Markera alla som lästa"</li>
+            </ul>
+            
+            <h3>📊 Dashboard-funktioner</h3>
+            <ul class="info-list">
+                <li>Färgkodade statusmärken: Gul (Väntande), Grön (Godkänd), Röd (Avvisad)</li>
+                <li>Snabbknappar för godkännande/avvisning direkt i tabellen</li>
+                <li>PDF-export med företagslogotyp och formatering</li>
+                <li>SharePoint-integration för dokumentlagring</li>
+            </ul>
+            
+            <h3>📸 Bilduppladdning</h3>
+            <ul class="info-list">
+                <li>Drag-and-drop bilduppladdning för dokumentation</li>
+                <li>Kameraintegration för direktfotografering på mobila enheter</li>
+                <li>Automatisk bildoptimering och säker lagring</li>
+                <li>Stöd för flera bildformat (JPEG, PNG, etc.)</li>
+            </ul>
+        </div>
+        
+        <div class="info-section">
+            <h2>📚 Referensbilder och Dokumentation</h2>
+            <p>Nedan hittar du referensbilder och dokumentation som visar hur systemet används:</p>
+            
+            <div class="image-gallery" id="imageGallery">
+                <!-- Images will be loaded dynamically -->
+            </div>
+        </div>
+        
+        <div class="info-section">
+            <h2>🔒 Säkerhet och Compliance</h2>
+            <ul class="info-list">
+                <li><strong>JWT-autentisering</strong> - Säker inloggning med token-baserad säkerhet</li>
+                <li><strong>Rollbaserad åtkomstkontroll</strong> - Användare ser endast relevant innehåll</li>
+                <li><strong>Krypterade lösenord</strong> - bcrypt-hashning för lösenordssäkerhet</li>
+                <li><strong>Auditspår</strong> - Alla åtgärder loggas med tidsstämplar</li>
+                <li><strong>CORS-säkerhet</strong> - Skydd mot obehöriga begäranden</li>
+            </ul>
+        </div>
+        
+        <div class="info-section">
+            <h2>💻 Teknisk Information</h2>
+            <h3>Backend (Server)</h3>
+            <ul class="info-list">
+                <li><strong>Node.js + Express</strong> - Robust serverarkitektur</li>
+                <li><strong>SQLite Database</strong> - Lokal databaslagring med god prestanda</li>
+                <li><strong>Multer</strong> - Säker filuppladdningshantering</li>
+                <li><strong>PDFKit</strong> - Dynamisk PDF-generering</li>
+                <li><strong>Node-cron</strong> - Schemalagda uppgifter och rensning</li>
+            </ul>
+            
+            <h3>Frontend (Klient)</h3>
+            <ul class="info-list">
+                <li><strong>Vanilla JavaScript</strong> - Ren, snabb frontend utan ramverk</li>
+                <li><strong>CSS Grid & Flexbox</strong> - Modern responsiv design</li>
+                <li><strong>Progressive Web App</strong> - Fungerar som en mobilapp</li>
+                <li><strong>Service Workers</strong> - Offline-funktionalitet</li>
+            </ul>
+        </div>
+        
+        <div class="info-section">
+            <h2>📞 Support och Hjälp</h2>
+            <p>För teknisk support eller frågor om systemet:</p>
+            <ul class="info-list">
+                <li><strong>IT-Support:</strong> Kontakta Utvecklare Nawoar Ekkou.</li>
+                <li><strong>Säkerhetsfrågor:</strong> Vänd dig till säkerhetsavdelningen</li>
+                <li><strong>Systemfel:</strong> Rapportera via företagets felrapporteringssystem</li>
+                <li><strong>Utbildning:</strong> Begär utbildning genom HR-avdelningen</li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Modal for image viewing -->
+    <div id="imageModal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+    
+    <script src="information.js"></script>
+</body>
+</html>

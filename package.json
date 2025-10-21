@@ -1,0 +1,37 @@
+{
+  "name": "hra-safety-app",
+  "version": "1.0.0",
+  "description": "HRA (Högriskarbete) Safety Management System for Volvo Cars",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo 'No build step required for this application'",
+    "test": "echo 'No tests specified'"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.5.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.0.2",
+    "node-cron": "^3.0.3",
+    "pdfkit": "^0.15.0"
+  },
+  "keywords": [
+    "safety",
+    "risk-assessment",
+    "volvo-cars",
+    "hra",
+    "hogriskarbete"
+  ],
+  "author": "Eng. Nawoar Ekkou",
+  "license": "MIT"
+}

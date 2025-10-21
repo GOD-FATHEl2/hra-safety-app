@@ -1,0 +1,92 @@
+{
+  "name": "Högriskarbete - Riskbedömning",
+  "short_name": "HRA",
+  "description": "Volvo Cars säkerhets- och riskbedömningsapp för högriskarbete",
+  "theme_color": "#ff9a00",
+  "background_color": "#f6f6f7",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "categories": ["productivity", "business"],
+  "screenshots": [
+    {
+      "src": "/screenshots/mobile-form.png",
+      "sizes": "414x896",
+      "type": "image/png",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/screenshots/desktop-dashboard.png", 
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ny bedömning",
+      "short_name": "Ny",
+      "description": "Skapa en ny riskbedömning",
+      "url": "/new-assessment",
+      "icons": [{ "src": "/icons/new-assessment.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Mina bedömningar",
+      "short_name": "Mina",
+      "description": "Visa mina tidigare bedömningar",
+      "url": "/my-assessments", 
+      "icons": [{ "src": "/icons/my-assessments.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Statistik och översikt",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/dashboard.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
+}

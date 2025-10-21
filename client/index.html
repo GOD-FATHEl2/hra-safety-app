@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>Högriskarbete – Riskbedömning</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+<header>
+  <h1>Bedömning av högriskarbete</h1>
+  <nav id="nav" class="hidden">
+    <button data-view="form">Ny bedömning</button>
+    <button data-view="mine">Mina</button>
+    <button data-view="dash" class="role-sup hidden">Dashboard</button>
+    <button data-view="users" class="role-admin hidden">Användare</button>
+    <button onclick="window.open('information.html', '_blank')">ℹ️ Info</button>
+    <button id="logout" class="right">Logga ut</button>
+  </nav>
+</header>
+
+<main>
+  <!-- LOGIN -->
+  <section id="loginView" class="card">
+    <h2>Logga in</h2>
+    <div class="grid2">
+      <label>Användarnamn<input id="lu" autocomplete="username"></label>
+      <label>Lösenord<input id="lp" type="password" autocomplete="current-password"></label>
+    </div>
+    <button id="loginBtn">Logga in</button>
+    <p id="loginMsg" class="warn hidden"></p>
+    <p class="hint">Roller: underhåll, supervisor, superintendent, admin, arbetsledare</p>
+  </section>
+
+  <!-- FORM -->
+  <section id="formView" class="card hidden"></section>
+
+  <!-- MY LIST -->
+  <section id="mineView" class="card hidden">
+    <h2>Bedömningar</h2>
+    <div id="mineTable"></div>
+  </section>
+
+  <!-- DASHBOARD (supervisor/superintendent/admin) -->
+  <section id="dashView" class="card hidden">
+    <h2>Dashboard (senaste 30 dagar)</h2>
+    <div id="stats"></div>
+    <button id="refreshDash">Uppdatera</button>
+    <div id="allTable" style="margin-top:12px"></div>
+  </section>
+
+  <!-- USERS (admin) -->
+  <section id="usersView" class="card hidden">
+    <h2>Användarhantering</h2>
+    <div class="grid3">
+      <label>Namn<input id="u_name"></label>
+      <label>Användarnamn<input id="u_user"></label>
+      <label>Lösenord<input id="u_pass" type="password"></label>
+      <label>Roll
+        <select id="u_role">
+          <option value="underhall">Underhåll</option>
+          <option value="supervisor">Supervisor</option>
+          <option value="superintendent">Superintendent</option>
+          <option value="admin">Administrator</option>
+        </select>
+      </label>
+      <label>Aktiv
+        <select id="u_active"><option value="1">Ja</option><option value="0">Nej</option></select>
+      </label>
+    </div>
+    <button id="addUser">Lägg till användare</button>
+    <div id="usersTable" style="margin-top:12px"></div>
+  </section>
+</main>
+
+<footer>
+  <small>VCT- Volvo-TBA • Made By Eng.Nawoar Ekkou</small>
+</footer>
+
+<script src="app.js"></script>
+<script src="dynamic-ui.js"></script>
+<script src="image-upload.js"></script>
+<script src="notifications.js"></script>
+</body>
+</html>
