@@ -15,11 +15,14 @@
     "npm": ">=8.0.0"
   },
   "dependencies": {
+    "@azure/msal-browser": "^3.30.0",
+    "@azure/msal-node": "^2.16.3",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.5.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^4.19.2",
+    "express-session": "^1.18.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "node-cron": "^3.0.3",

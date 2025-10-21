@@ -26,11 +26,27 @@
   <!-- LOGIN -->
   <section id="loginView" class="card">
     <h2>Logga in</h2>
-    <div class="grid2">
-      <label>Användarnamn<input id="lu" autocomplete="username"></label>
-      <label>Lösenord<input id="lp" type="password" autocomplete="current-password"></label>
+    
+    <!-- MSAL Authentication Option -->
+    <div class="auth-options">
+      <button id="msalLoginBtn" class="msal-login-btn">
+        <span class="microsoft-icon">🏢</span>
+        Logga in med Microsoft
+      </button>
+      <div class="divider">
+        <span>eller</span>
+      </div>
     </div>
-    <button id="loginBtn">Logga in</button>
+    
+    <!-- Traditional Login -->
+    <div class="traditional-login">
+      <div class="grid2">
+        <label>Användarnamn<input id="lu" autocomplete="username"></label>
+        <label>Lösenord<input id="lp" type="password" autocomplete="current-password"></label>
+      </div>
+      <button id="loginBtn">Logga in med lösenord</button>
+    </div>
+    
     <p id="loginMsg" class="warn hidden"></p>
     <p class="hint">Roller: underhåll, supervisor, superintendent, admin, arbetsledare</p>
   </section>

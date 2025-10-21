@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autentisering Lyckades - HRA Safety</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+        }
+
+        .success-container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: #4CAF50;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+            color: white;
+        }
+
+        p {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .redirect-info {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .manual-link {
+            color: #FFD700;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .manual-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="success-container">
+        <div class="success-icon">✓</div>
+        <h1>Autentisering Lyckades!</h1>
+        <p>Du har loggats in med Microsoft Azure AD.</p>
+        
+        <div class="redirect-info">
+            <div class="loading-spinner"></div>
+            <p style="margin: 10px 0 0 0;">Omdirigerar till instrumentpanelen...</p>
+        </div>
+        
+        <p>Om du inte omdirigeras automatiskt, <a href="/client/dashboard.html" class="manual-link">klicka här</a>.</p>
+    </div>
+
+    <script>
+        // Get token from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        if (token) {
+            // Store the token
+            localStorage.setItem('hra_token', token);
+            
+            // Redirect to dashboard after 2 seconds
+            setTimeout(() => {
+                window.location.href = '/client/dashboard.html';
+            }, 2000);
+        } else {
+            // No token found, redirect to login
+            setTimeout(() => {
+                window.location.href = '/client/index.html';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

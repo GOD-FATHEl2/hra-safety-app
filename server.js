@@ -8,6 +8,18 @@ import fs from "fs";
 import path from "path";
 import PDFDocument from "pdfkit";
 import multer from "multer"; // För filuppladdning
+import session from "express-session";
+
+// MSAL Authentication imports
+import { 
+    exchangeCodeForTokens, 
+    getUserInfo, 
+    getUserGroups, 
+    mapUserRole, 
+    createHRAToken, 
+    verifyToken,
+    getAuthUrl 
+} from './auth/msalAuth.js';
 
 // Load environment variables
 import dotenv from 'dotenv';
@@ -16,6 +28,19 @@ dotenv.config();
 // ====== EXPRESS APP SETUP ======
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
+
+// Session middleware for MSAL
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
 app.use(express.json({ limit: '50mb' })); // Increase limit for images
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static("client"));
@@ -387,27 +412,37 @@ CREATE INDEX IF NOT EXISTS idx_images_assessment ON assessment_images(assessment
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read);
 `);
 
-// Try to update existing users table to include arbetsledare role
+// Try to update existing users table to include MSAL support
 try {
-  db.exec("DROP TABLE IF EXISTS users_backup");
-  db.exec("CREATE TABLE users_backup AS SELECT * FROM users");
-  db.exec("DROP TABLE users");
-  db.exec(`
-    CREATE TABLE users(
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE NOT NULL,
-      passhash TEXT NOT NULL,
-      name TEXT NOT NULL,
-      role TEXT NOT NULL CHECK(role IN ('underhall','supervisor','superintendent','admin','arbetsledare')),
-      active INTEGER NOT NULL DEFAULT 1,
-      created_at TEXT NOT NULL
-    )
-  `);
-  db.exec("INSERT INTO users SELECT * FROM users_backup");
-  db.exec("DROP TABLE users_backup");
-  console.log("Updated users table to support arbetsledare role");
+  // Check if azure_id column exists
+  const tableInfo = db.prepare("PRAGMA table_info(users)").all();
+  const hasAzureId = tableInfo.some(col => col.name === 'azure_id');
+  const hasLastLogin = tableInfo.some(col => col.name === 'last_login');
+  
+  if (!hasAzureId || !hasLastLogin) {
+    console.log("Updating users table for MSAL support...");
+    db.exec("DROP TABLE IF EXISTS users_backup");
+    db.exec("CREATE TABLE users_backup AS SELECT * FROM users");
+    db.exec("DROP TABLE users");
+    db.exec(`
+      CREATE TABLE users(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
+        passhash TEXT NOT NULL,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL CHECK(role IN ('underhall','supervisor','superintendent','admin','arbetsledare')),
+        active INTEGER NOT NULL DEFAULT 1,
+        azure_id TEXT UNIQUE,
+        created_at TEXT NOT NULL,
+        last_login TEXT
+      )
+    `);
+    db.exec("INSERT INTO users (id, username, passhash, name, role, active, created_at) SELECT id, username, passhash, name, role, active, created_at FROM users_backup");
+    db.exec("DROP TABLE users_backup");
+    console.log("Updated users table to support MSAL authentication");
+  }
 } catch (error) {
-  console.log("Users table already supports arbetsledare role or migration not needed");
+  console.log("Users table update error or already configured:", error.message);
 }
 
 // seed admin and arbetsledare
@@ -469,6 +504,144 @@ app.post("/api/auth/login", (req, res) => {
   if (!bcrypt.compareSync(password, u.passhash)) return res.status(401).json({ error: "Fel användare/lösenord" });
   const token = signToken(u);
   res.json({ token, role: u.role, name: u.name });
+});
+
+// --- MSAL Authentication Routes ---
+
+// Get MSAL auth URL
+app.get("/api/auth/msal-url", async (req, res) => {
+  try {
+    const redirectUri = `${req.protocol}://${req.get('host')}/auth/callback`;
+    const authUrl = await getAuthUrl(redirectUri);
+    res.json({ authUrl });
+  } catch (error) {
+    console.error('Error getting auth URL:', error);
+    res.status(500).json({ error: 'Failed to get auth URL' });
+  }
+});
+
+// Handle MSAL callback
+app.get("/auth/callback", async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) {
+      return res.status(400).send('Authorization code not found');
+    }
+
+    const redirectUri = `${req.protocol}://${req.get('host')}/auth/callback`;
+    const tokenResponse = await exchangeCodeForTokens(code, redirectUri);
+    
+    // Get user info and groups
+    const userInfo = await getUserInfo(tokenResponse.accessToken);
+    const userGroups = await getUserGroups(tokenResponse.accessToken);
+    
+    // Map to HRA role
+    const hraRole = mapUserRole(userGroups);
+    
+    // Create or update user in database
+    const existingUser = db.prepare("SELECT * FROM users WHERE username=?").get(userInfo.userPrincipalName);
+    
+    let userId;
+    if (existingUser) {
+      // Update existing user
+      db.prepare(`
+        UPDATE users 
+        SET name=?, role=?, azure_id=?, last_login=CURRENT_TIMESTAMP 
+        WHERE username=?
+      `).run(userInfo.displayName, hraRole, userInfo.id, userInfo.userPrincipalName);
+      userId = existingUser.id;
+    } else {
+      // Create new user
+      const insertResult = db.prepare(`
+        INSERT INTO users (username, name, role, azure_id, passhash, active, created_at, last_login)
+        VALUES (?, ?, ?, ?, 'msal-auth', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).run(userInfo.userPrincipalName, userInfo.displayName, hraRole, userInfo.id);
+      userId = insertResult.lastInsertRowid;
+    }
+    
+    // Create HRA token
+    const hraToken = createHRAToken(userInfo, hraRole);
+    
+    // Store in session for client-side retrieval
+    req.session.hraToken = hraToken;
+    req.session.user = {
+      id: userId,
+      name: userInfo.displayName,
+      email: userInfo.mail || userInfo.userPrincipalName,
+      role: hraRole
+    };
+    
+    // Redirect to success page with token
+    res.redirect(`/client/auth-success.html?token=${encodeURIComponent(hraToken)}`);
+    
+  } catch (error) {
+    console.error('MSAL callback error:', error);
+    res.redirect('/client/auth-error.html');
+  }
+});
+
+// Exchange Microsoft token for HRA token (for popup flow)
+app.post("/api/auth/msal-exchange", async (req, res) => {
+  try {
+    const { accessToken } = req.body;
+    if (!accessToken) {
+      return res.status(400).json({ error: 'Access token required' });
+    }
+    
+    // Get user info and groups
+    const userInfo = await getUserInfo(accessToken);
+    const userGroups = await getUserGroups(accessToken);
+    
+    // Map to HRA role
+    const hraRole = mapUserRole(userGroups);
+    
+    // Create or update user in database
+    const existingUser = db.prepare("SELECT * FROM users WHERE username=?").get(userInfo.userPrincipalName);
+    
+    let userId;
+    if (existingUser) {
+      // Update existing user
+      db.prepare(`
+        UPDATE users 
+        SET name=?, role=?, azure_id=?, last_login=CURRENT_TIMESTAMP 
+        WHERE username=?
+      `).run(userInfo.displayName, hraRole, userInfo.id, userInfo.userPrincipalName);
+      userId = existingUser.id;
+    } else {
+      // Create new user
+      const insertResult = db.prepare(`
+        INSERT INTO users (username, name, role, azure_id, passhash, active, created_at, last_login)
+        VALUES (?, ?, ?, ?, 'msal-auth', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).run(userInfo.userPrincipalName, userInfo.displayName, hraRole, userInfo.id);
+      userId = insertResult.lastInsertRowid;
+    }
+    
+    // Create HRA token
+    const hraToken = createHRAToken(userInfo, hraRole);
+    
+    res.json({
+      token: hraToken,
+      user: {
+        id: userId,
+        name: userInfo.displayName,
+        email: userInfo.mail || userInfo.userPrincipalName,
+        role: hraRole
+      }
+    });
+    
+  } catch (error) {
+    console.error('MSAL token exchange error:', error);
+    res.status(500).json({ error: 'Token exchange failed' });
+  }
+});
+
+// Get MSAL configuration for client
+app.get("/api/auth/msal-config", (req, res) => {
+  res.json({
+    clientId: process.env.AZURE_CLIENT_ID || process.env.CLIENT_ID,
+    authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID || process.env.TENANT_ID}`,
+    redirectUri: `${req.protocol}://${req.get('host')}/auth/callback`
+  });
 });
 
 // --- User management (Admin)

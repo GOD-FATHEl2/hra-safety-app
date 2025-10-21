@@ -67,6 +67,110 @@ $("#loginBtn").onclick = async ()=>{
   renderForm(); show(views.form);
 };
 
+// MSAL Authentication
+let msalConfig = null;
+
+// Load MSAL configuration
+async function loadMSALConfig() {
+  try {
+    const response = await fetch(API + "/api/auth/msal-config");
+    if (response.ok) {
+      msalConfig = await response.json();
+      return true;
+    }
+  } catch (error) {
+    console.log("MSAL not configured");
+  }
+  return false;
+}
+
+// MSAL Login Button
+$("#msalLoginBtn").onclick = async () => {
+  try {
+    $("#loginMsg").classList.add("hidden");
+    
+    // Check if MSAL is configured
+    if (!msalConfig && !(await loadMSALConfig())) {
+      $("#loginMsg").textContent = "Microsoft autentisering inte konfigurerad";
+      $("#loginMsg").classList.remove("hidden");
+      return;
+    }
+    
+    // Load MSAL library dynamically
+    if (typeof msal === 'undefined') {
+      await loadMSALScript();
+    }
+    
+    // Initialize MSAL
+    const msalInstance = new msal.PublicClientApplication({
+      auth: {
+        clientId: msalConfig.clientId,
+        authority: msalConfig.authority,
+        redirectUri: msalConfig.redirectUri
+      },
+      cache: {
+        cacheLocation: "sessionStorage",
+        storeAuthStateInCookie: false,
+      }
+    });
+    
+    await msalInstance.initialize();
+    
+    // Login with popup
+    const loginRequest = {
+      scopes: ["https://graph.microsoft.com/User.Read"],
+      prompt: "select_account"
+    };
+    
+    const response = await msalInstance.loginPopup(loginRequest);
+    
+    // Exchange token with backend
+    const exchangeResponse = await fetch(API + "/api/auth/msal-exchange", {
+      method: "POST",
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ accessToken: response.accessToken })
+    });
+    
+    const exchangeResult = await exchangeResponse.json();
+    
+    if (!exchangeResponse.ok) {
+      $("#loginMsg").textContent = exchangeResult.error || "Autentisering misslyckades";
+      $("#loginMsg").classList.remove("hidden");
+      return;
+    }
+    
+    // Set authentication
+    setAuth(exchangeResult.token, exchangeResult.user.role, exchangeResult.user.name);
+    
+    // Initialize notification system on login
+    if (!window.notificationSystem) {
+      window.notificationSystem = new NotificationSystem();
+    }
+    
+    renderForm(); 
+    show(views.form);
+    
+  } catch (error) {
+    console.error("MSAL login error:", error);
+    $("#loginMsg").textContent = "Inloggning misslyckades: " + error.message;
+    $("#loginMsg").classList.remove("hidden");
+  }
+};
+
+// Load MSAL library dynamically
+function loadMSALScript() {
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js';
+    script.onload = resolve;
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+}
+
+// Initialize MSAL configuration on page load
+loadMSALConfig();
+
 // --- FORM (återanvänder logiken från MVP: risk & checklist) ---
 function formHTML(){
   return `
