@@ -10,20 +10,20 @@ import PDFDocument from "pdfkit";
 import multer from "multer"; // För filuppladdning
 import session from "express-session";
 
-// MSAL Authentication imports
-import { 
-    exchangeCodeForTokens, 
-    getUserInfo, 
-    getUserGroups, 
-    mapUserRole, 
-    createHRAToken, 
-    verifyToken,
-    getAuthUrl 
-} from './auth/msalAuth.js';
-
-// Load environment variables
+// Load environment variables first
 import dotenv from 'dotenv';
 dotenv.config();
+
+// MSAL Authentication imports (with error handling)
+let msalAuthModule = null;
+try {
+    const msalAuth = await import('./auth/msalAuth.js');
+    msalAuthModule = msalAuth;
+    console.log('MSAL authentication module loaded successfully');
+} catch (error) {
+    console.log('MSAL authentication not available:', error.message);
+    console.log('Continuing with traditional authentication only');
+}
 
 // ====== EXPRESS APP SETUP ======
 const app = express();
@@ -511,8 +511,11 @@ app.post("/api/auth/login", (req, res) => {
 // Get MSAL auth URL
 app.get("/api/auth/msal-url", async (req, res) => {
   try {
+    if (!msalAuthModule) {
+      return res.status(503).json({ error: 'MSAL authentication not configured' });
+    }
     const redirectUri = `${req.protocol}://${req.get('host')}/auth/callback`;
-    const authUrl = await getAuthUrl(redirectUri);
+    const authUrl = await msalAuthModule.getAuthUrl(redirectUri);
     res.json({ authUrl });
   } catch (error) {
     console.error('Error getting auth URL:', error);
@@ -523,20 +526,24 @@ app.get("/api/auth/msal-url", async (req, res) => {
 // Handle MSAL callback
 app.get("/auth/callback", async (req, res) => {
   try {
+    if (!msalAuthModule) {
+      return res.redirect('/client/auth-error.html');
+    }
+    
     const { code } = req.query;
     if (!code) {
       return res.status(400).send('Authorization code not found');
     }
 
     const redirectUri = `${req.protocol}://${req.get('host')}/auth/callback`;
-    const tokenResponse = await exchangeCodeForTokens(code, redirectUri);
+    const tokenResponse = await msalAuthModule.exchangeCodeForTokens(code, redirectUri);
     
     // Get user info and groups
-    const userInfo = await getUserInfo(tokenResponse.accessToken);
-    const userGroups = await getUserGroups(tokenResponse.accessToken);
+    const userInfo = await msalAuthModule.getUserInfo(tokenResponse.accessToken);
+    const userGroups = await msalAuthModule.getUserGroups(tokenResponse.accessToken);
     
     // Map to HRA role
-    const hraRole = mapUserRole(userGroups);
+    const hraRole = msalAuthModule.mapUserRole(userGroups);
     
     // Create or update user in database
     const existingUser = db.prepare("SELECT * FROM users WHERE username=?").get(userInfo.userPrincipalName);
@@ -560,7 +567,7 @@ app.get("/auth/callback", async (req, res) => {
     }
     
     // Create HRA token
-    const hraToken = createHRAToken(userInfo, hraRole);
+    const hraToken = msalAuthModule.createHRAToken(userInfo, hraRole);
     
     // Store in session for client-side retrieval
     req.session.hraToken = hraToken;
@@ -583,17 +590,21 @@ app.get("/auth/callback", async (req, res) => {
 // Exchange Microsoft token for HRA token (for popup flow)
 app.post("/api/auth/msal-exchange", async (req, res) => {
   try {
+    if (!msalAuthModule) {
+      return res.status(503).json({ error: 'MSAL authentication not configured' });
+    }
+    
     const { accessToken } = req.body;
     if (!accessToken) {
       return res.status(400).json({ error: 'Access token required' });
     }
     
     // Get user info and groups
-    const userInfo = await getUserInfo(accessToken);
-    const userGroups = await getUserGroups(accessToken);
+    const userInfo = await msalAuthModule.getUserInfo(accessToken);
+    const userGroups = await msalAuthModule.getUserGroups(accessToken);
     
     // Map to HRA role
-    const hraRole = mapUserRole(userGroups);
+    const hraRole = msalAuthModule.mapUserRole(userGroups);
     
     // Create or update user in database
     const existingUser = db.prepare("SELECT * FROM users WHERE username=?").get(userInfo.userPrincipalName);
@@ -617,7 +628,7 @@ app.post("/api/auth/msal-exchange", async (req, res) => {
     }
     
     // Create HRA token
-    const hraToken = createHRAToken(userInfo, hraRole);
+    const hraToken = msalAuthModule.createHRAToken(userInfo, hraRole);
     
     res.json({
       token: hraToken,
@@ -637,6 +648,10 @@ app.post("/api/auth/msal-exchange", async (req, res) => {
 
 // Get MSAL configuration for client
 app.get("/api/auth/msal-config", (req, res) => {
+  if (!msalAuthModule) {
+    return res.status(503).json({ error: 'MSAL authentication not configured' });
+  }
+  
   res.json({
     clientId: process.env.AZURE_CLIENT_ID || process.env.CLIENT_ID,
     authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID || process.env.TENANT_ID}`,
