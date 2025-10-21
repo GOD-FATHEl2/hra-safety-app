@@ -8,32 +8,34 @@ This guide will help you configure Microsoft Authentication Library (MSAL) for e
 2. Application registration in Azure AD
 3. Azure AD groups for role management
 
-## Step 1: Azure AD App Registration
+## Step 1: Azure AD App Registration ✅ COMPLETED
 
-### Create App Registration
-1. Go to Azure Portal → Azure Active Directory → App registrations
-2. Click "New registration"
-3. Configure:
-   - **Name**: `HRA Safety Assessment System`
-   - **Supported account types**: Accounts in this organizational directory only
-   - **Redirect URI**: 
-     - Type: Web
-     - URL: `https://your-domain.com/auth/callback` (for production)
-     - URL: `http://localhost:3000/auth/callback` (for development)
+### ✅ Your App Registration Details
+- **Name**: HRA
+- **Application (client) ID**: `eb9865fe-5d08-43ed-8ee9-6cad32b74981`
+- **Directory (tenant) ID**: `81fa766e-a349-4867-8bf4-ab35e250a08f`
+- **Object ID**: `366a1807-4af9-4690-bd66-09123245484e`
+- **Supported account types**: Multiple organizations
+
+### ✅ Redirect URIs (CONFIGURED)
+Your app registration should have these redirect URIs:
+- **Production**: `https://hra-h8fea8c0gucwf7fe.canadacentral-01.azurewebsites.net/auth/callback`
+- **Development**: `http://localhost:8080/auth/callback`
 
 ### Configure API Permissions
-1. Go to API permissions
+1. Go to API permissions in your app registration
 2. Add permissions:
    - **Microsoft Graph** → Delegated permissions:
      - `User.Read` (to read user profile)
      - `GroupMember.Read.All` (to read user's group memberships)
 
-### Create Client Secret
-1. Go to Certificates & secrets
+### ⚠️ ADD CLIENT SECRET
+1. Go to Certificates & secrets in your Azure Portal
 2. Click "New client secret"
-3. Add description: `HRA App Secret`
+3. Add description: `HRA App Production Secret`
 4. Set expiration: 24 months
 5. **Copy the secret value immediately** (you won't see it again)
+6. Add it to Azure App Service Configuration as `AZURE_CLIENT_SECRET`
 
 ## Step 2: Configure Azure AD Groups
 
@@ -94,23 +96,31 @@ export const roleMapping = {
 };
 ```
 
-## Step 4: Azure App Service Configuration
+## Step 4: Azure App Service Configuration ✅ DEPLOYED
 
-### Environment Variables
-In Azure App Service → Configuration → Application settings, add:
+### ✅ Your App Service Details
+- **App Name**: `hra`
+- **URL**: `https://hra-h8fea8c0gucwf7fe.canadacentral-01.azurewebsites.net`
+- **Resource Group**: HRA (Canada Central)
+- **Runtime Stack**: Node 20-lts
+- **Operating System**: Linux
+- **Plan**: Premium0V3 (P0v3)
+
+### ⚠️ Required Environment Variables
+In Azure Portal → App Services → hra → Configuration → Application settings, add:
 
 ```
-AZURE_TENANT_ID = your-tenant-id
-AZURE_CLIENT_ID = your-client-id
-AZURE_CLIENT_SECRET = your-client-secret
-SESSION_SECRET = your-session-secret
-JWT_SECRET = your-jwt-secret
+AZURE_TENANT_ID = 81fa766e-a349-4867-8bf4-ab35e250a08f
+AZURE_CLIENT_ID = eb9865fe-5d08-43ed-8ee9-6cad32b74981
+AZURE_CLIENT_SECRET = [GET FROM AZURE PORTAL CERTIFICATES & SECRETS]
+SESSION_SECRET = [GENERATE 32+ CHARACTER RANDOM STRING]
+JWT_SECRET = [GENERATE 64+ CHARACTER RANDOM STRING]
 NODE_ENV = production
 ```
 
-### Redirect URIs
+### ✅ Redirect URIs Updated
 Update your App Registration redirect URIs to include:
-- `https://your-app-name.azurewebsites.net/auth/callback`
+- `https://hra-h8fea8c0gucwf7fe.canadacentral-01.azurewebsites.net/auth/callback`
 
 ## Step 5: Testing
 
