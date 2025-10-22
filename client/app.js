@@ -6,6 +6,43 @@ const show = id => { document.querySelectorAll("main > section").forEach(x=>x.cl
 const nav = $("#nav"); const loginView = $("#loginView");
 const views = { form:"#formView", mine:"#mineView", dash:"#dashView", users:"#usersView" };
 
+// Mobile menu functionality
+function initMobileMenu() {
+  const mobileMenuToggle = $('.mobile-menu-toggle');
+  const navMenu = $('#nav');
+  
+  if (mobileMenuToggle && navMenu) {
+    // Remove any existing listeners to prevent duplicates
+    mobileMenuToggle.replaceWith(mobileMenuToggle.cloneNode(true));
+    const newToggle = $('.mobile-menu-toggle');
+    
+    newToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      navMenu.classList.toggle('show');
+      newToggle.classList.toggle('active');
+    });
+
+    // Close menu when clicking outside (but don't interfere with nav buttons)
+    document.addEventListener('click', (e) => {
+      if (!newToggle.contains(e.target) && !navMenu.contains(e.target) && window.innerWidth <= 768) {
+        navMenu.classList.remove('show');
+        newToggle.classList.remove('active');
+      }
+    });
+
+    // Handle window resize
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 768) {
+        navMenu.classList.remove('show');
+        newToggle.classList.remove('active');
+      }
+    });
+  }
+}
+
+// Initialize mobile menu when DOM is ready
+document.addEventListener('DOMContentLoaded', initMobileMenu);
+
 // --- auth ---
 function setAuth(t, r, n){
   token=t; role=r; name=n;
@@ -14,6 +51,9 @@ function setAuth(t, r, n){
   $(".role-sup").classList.toggle("hidden", !(role==="supervisor"||role==="superintendent"||role==="admin"));
   $(".role-admin").classList.toggle("hidden", role!=="admin");
   loginView.classList.add("hidden");
+  
+  // Initialize mobile menu after showing nav
+  setTimeout(initMobileMenu, 100);
 }
 function loadAuth(){
   const a = JSON.parse(localStorage.getItem("auth")||"null");
@@ -28,6 +68,9 @@ function loadAuth(){
   if (!window.notificationSystem) {
     window.notificationSystem = new NotificationSystem();
   }
+  
+  // Initialize mobile menu after showing nav
+  setTimeout(initMobileMenu, 100);
 }
 loadAuth();
 
@@ -40,6 +83,15 @@ nav.addEventListener("click", e=>{
     if(v==="dash") loadDash();
     if(v==="users") loadUsers();
     show(views[v]);
+    
+    // Close mobile menu after navigation (if on mobile)
+    if (window.innerWidth <= 768) {
+      const mobileToggle = $('.mobile-menu-toggle');
+      if (mobileToggle) {
+        nav.classList.remove('show');
+        mobileToggle.classList.remove('active');
+      }
+    }
   }
 });
 $("#logout").onclick = ()=>{ 
