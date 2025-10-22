@@ -142,15 +142,34 @@ class ImageUploadManager {
 
         const progressBar = document.getElementById(`progress-${imageData.id}`);
         
+        // Check if user is authenticated
+        const authToken = window.token || localStorage.getItem('token');
+        if (!authToken) {
+            this.showError('Du måste logga in för att ladda upp bilder');
+            this.removeImage(imageData.id);
+            return;
+        }
+        
         // Real server upload
         fetch('/api/upload-image', {
             method: 'POST',
             body: formData,
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('token')
+                'Authorization': 'Bearer ' + (window.token || localStorage.getItem('token') || '')
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                if (response.status === 401) {
+                    throw new Error('Autentisering misslyckades - logga in igen');
+                } else if (response.status === 413) {
+                    throw new Error('Filen är för stor');
+                } else {
+                    throw new Error(`Upload misslyckades (${response.status})`);
+                }
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 imageData.serverUrl = data.url;
@@ -196,17 +215,26 @@ class ImageUploadManager {
             // Create camera modal
             const modal = document.createElement('div');
             modal.className = 'modal-overlay';
+            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 10000;';
             modal.innerHTML = `
-                <div class="modal-content" style="max-width: 90%; max-height: 90%;">
-                    <h2>Ta ett foto</h2>
-                    <video id="cameraVideo" autoplay playsinline style="width: 100%; max-height: 400px; border-radius: 12px;"></video>
+                <div class="modal-content" style="background: white; padding: 2rem; border-radius: 16px; max-width: 90%; max-height: 90%; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
+                    <button onclick="imageUploadManager.closeCamera()" style="position: absolute; top: 10px; right: 15px; background: none; border: none; font-size: 24px; cursor: pointer; color: #666; padding: 5px; line-height: 1;" title="Stäng kamera">×</button>
+                    <h2 style="margin: 0 0 1rem 0; text-align: center; color: #333;">📷 Ta ett foto</h2>
+                    <video id="cameraVideo" autoplay playsinline style="width: 100%; max-height: 400px; border-radius: 12px; background: #000;"></video>
                     <canvas id="cameraCanvas" style="display: none;"></canvas>
                     <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
-                        <button onclick="imageUploadManager.capturePhoto()" class="btn-primary">📷 Ta foto</button>
-                        <button onclick="imageUploadManager.closeCamera()" class="btn-secondary">Avbryt</button>
+                        <button onclick="imageUploadManager.capturePhoto()" style="background: #10b981; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px;">📷 Ta foto</button>
+                        <button onclick="imageUploadManager.closeCamera()" style="background: #6b7280; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 600;">Avbryt</button>
                     </div>
                 </div>
             `;
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.closeCamera();
+                }
+            });
             document.body.appendChild(modal);
             this.currentCameraModal = modal;
 

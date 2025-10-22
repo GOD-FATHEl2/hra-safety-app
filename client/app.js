@@ -203,6 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function setAuth(t, r, n){
   console.log('🔐 setAuth called:', {token: t?.substring(0,10)+'...', role: r, name: n});
   token=t; role=r; name=n;
+  window.token = t; // Make token available globally for image upload
   localStorage.setItem("auth", JSON.stringify({t,r,n}));
   console.log('🔐 Showing navigation menu');
   nav.classList.remove("hidden");
@@ -230,6 +231,7 @@ function loadAuth(){
     return;
   }
   token=a.t; role=a.r; name=a.n;
+  window.token = a.t; // Make token available globally for image upload
   console.log('🔐 Loaded auth:', {role, name});
   
   if (nav) {
