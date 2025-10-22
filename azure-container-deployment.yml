@@ -1,0 +1,38 @@
+# Azure Container Instances deployment template
+apiVersion: 2019-12-01
+location: West Europe
+name: hra-container-group
+properties:
+  containers:
+  - name: hra-app
+    properties:
+      image: your-registry.azurecr.io/hra-app:latest
+      resources:
+        requests:
+          cpu: 1
+          memoryInGb: 2
+      ports:
+      - port: 8080
+        protocol: TCP
+      environmentVariables:
+      - name: NODE_ENV
+        value: production
+      - name: PORT
+        value: 8080
+      - name: AZURE_CLIENT_ID
+        secureValue: your-client-id
+      - name: AZURE_TENANT_ID
+        secureValue: your-tenant-id
+      - name: AZURE_CLIENT_SECRET
+        secureValue: your-client-secret
+  osType: Linux
+  restartPolicy: Always
+  ipAddress:
+    type: Public
+    ports:
+    - protocol: TCP
+      port: 8080
+    dnsNameLabel: hra-safety-app
+tags:
+  app: hra
+  environment: production

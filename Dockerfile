@@ -1,5 +1,5 @@
 # Multi-stage build for HRA Safety Management System
-FROM node:18-alpine as builder
+FROM node:20-alpine as builder
 
 # Set working directory
 WORKDIR /app
@@ -11,7 +11,7 @@ COPY package*.json ./
 RUN npm ci --only=production
 
 # Production stage
-FROM node:18-alpine as production
+FROM node:20-alpine as production
 
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
