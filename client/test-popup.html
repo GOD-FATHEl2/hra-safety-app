@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Microsoft Popup</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 50px auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background: #0078d4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #106ebe;
+        }
+        .log {
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .status.error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .status.info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Microsoft Popup Test</h1>
+        <p>This page helps debug Microsoft authentication popup issues.</p>
+        
+        <div id="status" class="status info">
+            Laddar MSAL-konfiguration...
+        </div>
+        
+        <button id="testPopup">Test Basic Popup</button>
+        <button id="testMSAL" disabled>Test Microsoft Login</button>
+        <button id="clearLog">Clear Log</button>
+        
+        <h3>Debug Log:</h3>
+        <div id="log" class="log"></div>
+    </div>
+
+    <script src="https://alcdn.msauth.net/browser/3.0.0/js/msal-browser.min.js"></script>
+    <script>
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+        
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `<span style="color: #666">[${timestamp}]</span> ${message}`;
+            log.appendChild(logEntry);
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateStatus(message, type = 'info') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+        
+        let msalInstance = null;
+        let msalConfig = null;
+        
+        // Test basic popup functionality
+        document.getElementById('testPopup').onclick = () => {
+            addLog('🧪 Testing basic popup functionality...');
+            
+            try {
+                const popup = window.open('about:blank', '_blank', 'width=600,height=700,scrollbars=yes,resizable=yes');
+                
+                if (!popup) {
+                    addLog('❌ Popup blocked by browser');
+                    updateStatus('Popup blockerad av webbläsare', 'error');
+                    return;
+                }
+                
+                if (popup.closed) {
+                    addLog('❌ Popup immediately closed');
+                    updateStatus('Popup stängdes direkt', 'error');
+                    return;
+                }
+                
+                addLog('✅ Popup opened successfully');
+                popup.document.write(`
+                    <html>
+                        <head><title>Test Popup</title></head>
+                        <body style="font-family: Arial; padding: 20px; text-align: center;">
+                            <h2>🎉 Popup fungerar!</h2>
+                            <p>Detta popup öppnades framgångsrikt.</p>
+                            <button onclick="window.close()">Stäng</button>
+                        </body>
+                    </html>
+                `);
+                
+                updateStatus('Popup test lyckades', 'success');
+                
+                // Check if popup gets closed unexpectedly
+                const checkClosed = setInterval(() => {
+                    if (popup.closed) {
+                        addLog('ℹ️ Popup was closed');
+                        clearInterval(checkClosed);
+                    }
+                }, 1000);
+                
+            } catch (error) {
+                addLog(`❌ Popup test failed: ${error.message}`);
+                updateStatus('Popup test misslyckades', 'error');
+            }
+        };
+        
+        // Load MSAL configuration and initialize
+        async function initializeMSAL() {
+            try {
+                addLog('🔧 Loading MSAL configuration...');
+                
+                const response = await fetch('/api/auth/msal-config');
+                if (!response.ok) {
+                    throw new Error(`Config request failed: ${response.status}`);
+                }
+                
+                msalConfig = await response.json();
+                addLog(`✅ MSAL config loaded: ${msalConfig.clientId}`);
+                
+                // Initialize MSAL instance
+                msalInstance = new msal.PublicClientApplication({
+                    auth: {
+                        clientId: msalConfig.clientId,
+                        authority: msalConfig.authority,
+                        redirectUri: window.location.origin,
+                        navigateToLoginRequestUrl: false
+                    },
+                    cache: {
+                        cacheLocation: "sessionStorage",
+                        storeAuthStateInCookie: false,
+                    },
+                    system: {
+                        allowNativeBroker: false,
+                        windowHashTimeout: 60000,
+                        iframeHashTimeout: 6000,
+                        loggerOptions: {
+                            loggerCallback: (level, message, containsPii) => {
+                                if (containsPii) return;
+                                addLog(`MSAL [${level}]: ${message}`);
+                            },
+                            logLevel: msal.LogLevel.Verbose
+                        }
+                    }
+                });
+                
+                // Add event callbacks
+                msalInstance.addEventCallback((event) => {
+                    addLog(`🔔 MSAL Event: ${event.eventType}`);
+                    
+                    if (event.eventType === 'POPUP_OPENED') {
+                        addLog('🪟 Microsoft login popup opened');
+                    }
+                    
+                    if (event.eventType === 'POPUP_CLOSED') {
+                        addLog('🪟 Microsoft login popup closed');
+                    }
+                    
+                    if (event.eventType === 'LOGIN_SUCCESS') {
+                        addLog('✅ Login successful!');
+                        updateStatus('Microsoft-inloggning lyckades!', 'success');
+                    }
+                    
+                    if (event.eventType === 'LOGIN_FAILURE') {
+                        addLog(`❌ Login failed: ${event.error?.message || 'Unknown error'}`);
+                        updateStatus('Microsoft-inloggning misslyckades', 'error');
+                    }
+                });
+                
+                await msalInstance.handleRedirectPromise();
+                
+                document.getElementById('testMSAL').disabled = false;
+                updateStatus('MSAL initialiserat och redo', 'success');
+                addLog('✅ MSAL initialized successfully');
+                
+            } catch (error) {
+                addLog(`❌ MSAL initialization failed: ${error.message}`);
+                updateStatus('MSAL-initialisering misslyckades', 'error');
+            }
+        }
+        
+        // Test Microsoft login
+        document.getElementById('testMSAL').onclick = async () => {
+            if (!msalInstance) {
+                addLog('❌ MSAL not initialized');
+                return;
+            }
+            
+            try {
+                addLog('🚀 Starting Microsoft login popup...');
+                updateStatus('Startar Microsoft-inloggning...', 'info');
+                
+                const loginRequest = {
+                    scopes: ["https://graph.microsoft.com/User.Read"],
+                    prompt: "select_account"
+                };
+                
+                addLog(`🔧 Login request: ${JSON.stringify(loginRequest)}`);
+                
+                const response = await msalInstance.loginPopup(loginRequest);
+                
+                addLog(`✅ Login successful! User: ${response.account?.username}`);
+                updateStatus(`Inloggad som: ${response.account?.username}`, 'success');
+                
+            } catch (error) {
+                addLog(`❌ Microsoft login failed: ${error.message}`);
+                updateStatus('Microsoft-inloggning misslyckades', 'error');
+                
+                if (error.message.includes('popup_window_error')) {
+                    addLog('💡 Tip: Check popup blocker settings');
+                }
+                if (error.message.includes('user_cancelled')) {
+                    addLog('💡 User cancelled the login');
+                }
+            }
+        };
+        
+        // Clear log
+        document.getElementById('clearLog').onclick = () => {
+            log.innerHTML = '';
+        };
+        
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            addLog('🏁 Page loaded, initializing...');
+            initializeMSAL();
+        });
+    </script>
+</body>
+</html>

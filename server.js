@@ -247,8 +247,6 @@ function makeAssessmentPDF(row, creatorName) {
     // Godkännande
     doc.fontSize(12).text("E. Godkännande", { underline: true });
     kv("Kan arbetet utföras säkert?:", row.safe);
-    kv("Arbetsledare:", row.leader);
-    kv("Signatur/Initialer:", row.signature);
     kv("Status:", row.status);
     if (row.approved_at) kv("Godkänt:", `${row.approved_at} av #${row.approved_by||"-"}`);
     doc.moveDown();
@@ -538,12 +536,12 @@ app.get("/auth/callback", async (req, res) => {
     const redirectUri = `${req.protocol}://${req.get('host')}/auth/callback`;
     const tokenResponse = await msalAuthModule.exchangeCodeForTokens(code, redirectUri);
     
-    // Get user info and groups
+    // Get user info and app roles
     const userInfo = await msalAuthModule.getUserInfo(tokenResponse.accessToken);
-    const userGroups = await msalAuthModule.getUserGroups(tokenResponse.accessToken);
+    const userRoles = msalAuthModule.getUserRoles(tokenResponse.accessToken);
     
     // Map to HRA role
-    const hraRole = msalAuthModule.mapUserRole(userGroups);
+    const hraRole = msalAuthModule.mapUserRole(userRoles);
     
     // Create or update user in database
     const existingUser = db.prepare("SELECT * FROM users WHERE username=?").get(userInfo.userPrincipalName);
@@ -594,17 +592,39 @@ app.post("/api/auth/msal-exchange", async (req, res) => {
       return res.status(503).json({ error: 'MSAL authentication not configured' });
     }
     
-    const { accessToken } = req.body;
+    const { accessToken, idToken, account } = req.body;
     if (!accessToken) {
       return res.status(400).json({ error: 'Access token required' });
     }
     
-    // Get user info and groups
+    console.log('🔄 Processing MSAL token exchange...');
+    
+    // Validate token first (like FastAPI implementation)
+    try {
+      const tokenClaims = await msalAuthModule.validateAccessToken(accessToken);
+      console.log('✅ Token validation successful:', {
+        sub: tokenClaims.sub,
+        aud: tokenClaims.aud,
+        iss: tokenClaims.iss
+      });
+    } catch (validationError) {
+      console.error('❌ Token validation failed:', validationError.message);
+      return res.status(401).json({ error: 'Invalid access token: ' + validationError.message });
+    }
+    
+    // Get user info and app roles
     const userInfo = await msalAuthModule.getUserInfo(accessToken);
-    const userGroups = await msalAuthModule.getUserGroups(accessToken);
+    const userRoles = await msalAuthModule.getUserRoles(accessToken);
+    
+    console.log('👤 User info:', { 
+      name: userInfo.displayName, 
+      email: userInfo.userPrincipalName,
+      roles: userRoles 
+    });
     
     // Map to HRA role
-    const hraRole = msalAuthModule.mapUserRole(userGroups);
+    const hraRole = msalAuthModule.mapUserRole(userRoles);
+    console.log('🎭 Mapped HRA role:', hraRole);
     
     // Create or update user in database
     const existingUser = db.prepare("SELECT * FROM users WHERE username=?").get(userInfo.userPrincipalName);
@@ -612,6 +632,7 @@ app.post("/api/auth/msal-exchange", async (req, res) => {
     let userId;
     if (existingUser) {
       // Update existing user
+      console.log('🔄 Updating existing user');
       db.prepare(`
         UPDATE users 
         SET name=?, role=?, azure_id=?, last_login=CURRENT_TIMESTAMP 
@@ -620,6 +641,7 @@ app.post("/api/auth/msal-exchange", async (req, res) => {
       userId = existingUser.id;
     } else {
       // Create new user
+      console.log('➕ Creating new user');
       const insertResult = db.prepare(`
         INSERT INTO users (username, name, role, azure_id, passhash, active, created_at, last_login)
         VALUES (?, ?, ?, ?, 'msal-auth', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
@@ -629,6 +651,8 @@ app.post("/api/auth/msal-exchange", async (req, res) => {
     
     // Create HRA token
     const hraToken = msalAuthModule.createHRAToken(userInfo, hraRole);
+    
+    console.log('✅ MSAL token exchange successful');
     
     res.json({
       token: hraToken,
@@ -641,8 +665,8 @@ app.post("/api/auth/msal-exchange", async (req, res) => {
     });
     
   } catch (error) {
-    console.error('MSAL token exchange error:', error);
-    res.status(500).json({ error: 'Token exchange failed' });
+    console.error('❌ MSAL token exchange error:', error);
+    res.status(500).json({ error: 'Token exchange failed: ' + error.message });
   }
 });
 
@@ -652,10 +676,14 @@ app.get("/api/auth/msal-config", (req, res) => {
     return res.status(503).json({ error: 'MSAL authentication not configured' });
   }
   
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const tenantId = process.env.AZURE_TENANT_ID || process.env.TENANT_ID;
+  
   res.json({
     clientId: process.env.AZURE_CLIENT_ID || process.env.CLIENT_ID,
-    authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID || process.env.TENANT_ID}`,
-    redirectUri: `${req.protocol}://${req.get('host')}/auth/callback`
+    tenantId: tenantId,
+    authority: `https://login.microsoftonline.com/${tenantId}`,
+    redirectUri: baseUrl  // For popup auth, use the main page
   });
 });
 
@@ -702,30 +730,28 @@ app.delete("/api/users/:id", auth(), requireRole("admin"), (req, res) => {
 // --- Assessments
 app.post("/api/assessments", auth(), (req, res) => {
   const b = req.body || {};
-  // server-side policy: kräver signatur när risk >= 10 eller nåt Nej i checklist
+  // server-side policy: assessments will be reviewed through digital approval system
   const riskScore = (+b.risk_s || 1) * (+b.risk_k || 1);
   const hasNej = Array.isArray(b.checklist) && b.checklist.some(v => v === "Nej");
   const requiresLeader = (riskScore >= 10) || hasNej || b.safe === "Nej";
-  const leaderProvided = !!(b.leader && b.signature);
+  const leaderProvided = false; // No manual signatures required
 
-  if (requiresLeader && !leaderProvided) {
-    return res.status(400).json({ error: "Kräver arbetsledarens namn och signatur." });
-  }
+  // All assessments now go through digital approval workflow
 
   const info = db.prepare(`
     INSERT INTO assessments(
       date, worker_name, team, location, task,
       risk_s, risk_k, risk_score, risks, checklist, actions, further, fullrisk,
-      safe, leader, signature, images, requires_leader, leader_provided,
+      safe, leader, signature, requires_leader, leader_provided,
       created_by, created_at, archivable_after, status
     ) VALUES(?,?,?,?,?,
-             ?,?,?,?,?,?,?,?,?,?,?,?,?,?,
+             ?,?,?,?,?,?,?,?,?,?,?,?,?,
              ?,?,?,?)
   `).run(
     b.date, b.worker_name, b.team, b.location, b.task,
     +b.risk_s, +b.risk_k, riskScore, b.risks ?? "",
     JSON.stringify(b.checklist||[]), b.actions ?? "", b.further ?? "Nej", b.fullrisk ?? "Nej",
-    b.safe ?? "Ja", b.leader ?? "", b.signature ?? "", JSON.stringify(b.images || []),
+    b.safe ?? "Ja", "", "",
     requiresLeader?1:0, leaderProvided?1:0,
     req.user.uid, nowISO(), addDaysISO(nowISO(), 180), 'Pending'
   );

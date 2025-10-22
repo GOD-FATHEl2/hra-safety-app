@@ -51,22 +51,20 @@ export const clientMsalConfig = {
     }
 };
 
-// Scopes for Microsoft Graph API
+// Scopes for Microsoft Graph API and app roles
 export const scopes = {
     graph: ["https://graph.microsoft.com/User.Read"],
-    custom: ["api://your-api-id/access_as_user"] // Replace with your API scope
+    // For app roles, we need to request the default scope of the application
+    appRoles: [`api://${process.env.AZURE_CLIENT_ID || process.env.CLIENT_ID}/.default`]
 };
 
-// Role mapping from Azure AD groups to HRA roles
-// IMPORTANT: Replace these with your actual Azure AD Group Object IDs
+// Role mapping for app roles (legacy support for group-based mapping)
+// App roles are now handled directly by role name, but this provides fallback mapping
 export const roleMapping = {
-    // Example Azure AD Group Object IDs - REPLACE WITH YOUR ACTUAL GROUP IDs
-    '12345678-1234-1234-1234-123456789abc': 'admin',           // HRA Administrators
-    '87654321-4321-4321-4321-cba987654321': 'superintendent',  // HRA Superintendents
-    'abcdef12-3456-7890-abcd-ef1234567890': 'supervisor',      // HRA Supervisors
-    '09876543-210f-edcb-a098-765432109876': 'arbetsledare',    // HRA Arbets Ledare
-    'fedcba09-8765-4321-fedc-ba0987654321': 'underhall'       // HRA Underhåll
+    // Legacy group mappings (if migrating from groups to app roles)
+    // Direct app role values: 'admin', 'superintendent', 'arbetsledare', 'supervisor', 'underhall'
+    // These match exactly with the app role values created in Azure AD
 };
 
-// Default role if no group mapping found
+// Default role if no app role found
 export const defaultRole = 'underhall';

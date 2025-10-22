@@ -40,6 +40,9 @@
         <span class="microsoft-icon">🏢</span>
         Logga in med Microsoft
       </button>
+      <div id="networkStatus" class="network-status hidden">
+        <small>🌐 Nätverksstatus: <span id="networkStatusText">Testar...</span></small>
+      </div>
       <div class="divider">
         <span>eller</span>
       </div>
@@ -55,6 +58,14 @@
     </div>
     
     <p id="loginMsg" class="warn hidden"></p>
+    <div id="testUserHints" class="test-user-hints hidden">
+      <p class="hint">📝 Testa med dessa användare:</p>
+      <div class="test-users">
+        <div class="test-user">👤 <strong>test1</strong> / test123 <em>(admin)</em></div>
+        <div class="test-user">👤 <strong>test2</strong> / test123 <em>(supervisor)</em></div>
+        <div class="test-user">👤 <strong>test3</strong> / test123 <em>(underhåll)</em></div>
+      </div>
+    </div>
     <p class="hint">Roller: underhåll, supervisor, superintendent, admin, arbetsledare</p>
   </section>
 
@@ -103,6 +114,8 @@
   <small>VCT- Volvo-TBA • Made By Eng.Nawoar Ekkou</small>
 </footer>
 
+<script src="msal-mock.js"></script>
+<script src="msal-diagnostics.js"></script>
 <script src="app.js"></script>
 <script src="dynamic-ui.js"></script>
 <script src="image-upload.js"></script>

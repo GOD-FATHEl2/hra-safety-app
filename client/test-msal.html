@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MSAL Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+        .log { background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 5px; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>🧪 MSAL Direct Test</h1>
+    
+    <button id="testMSAL">Test Microsoft Login</button>
+    <button id="clearLog">Clear Log</button>
+    
+    <div id="log" class="log">
+        <strong>Test Log:</strong><br>
+        <div id="logContent">Click "Test Microsoft Login" to start...</div>
+    </div>
+    
+    <script>
+        const log = (message, type = 'info') => {
+            const logContent = document.getElementById('logContent');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : '';
+            logContent.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            console.log(message);
+        };
+        
+        document.getElementById('clearLog').onclick = () => {
+            document.getElementById('logContent').innerHTML = 'Log cleared...<br>';
+        };
+        
+        document.getElementById('testMSAL').onclick = async () => {
+            log('🚀 Starting MSAL test...');
+            
+            try {
+                // Load MSAL from CDN
+                log('📦 Loading MSAL library...');
+                
+                const script = document.createElement('script');
+                script.src = 'https://alcdn.msauth.net/browser/3.0.0/js/msal-browser.min.js';
+                
+                await new Promise((resolve, reject) => {
+                    script.onload = () => {
+                        log('✅ MSAL library loaded successfully', 'success');
+                        resolve();
+                    };
+                    script.onerror = () => {
+                        log('❌ Failed to load MSAL library', 'error');
+                        reject(new Error('MSAL load failed'));
+                    };
+                    document.head.appendChild(script);
+                });
+                
+                // Initialize MSAL
+                log('⚙️ Initializing MSAL...');
+                
+                const msalConfig = {
+                    auth: {
+                        clientId: 'eb9865fe-5d08-43ed-8ee9-6cad32b74981',
+                        authority: 'https://login.microsoftonline.com/81fa766e-a349-4867-8bf4-ab35e250a08f',
+                        redirectUri: window.location.origin + '/test-msal.html'
+                    },
+                    cache: {
+                        cacheLocation: "sessionStorage",
+                        storeAuthStateInCookie: false,
+                    }
+                };
+                
+                const msalInstance = new msal.PublicClientApplication(msalConfig);
+                log('✅ MSAL instance created', 'success');
+                
+                // Handle redirect promise
+                log('🔄 Handling redirect promise...');
+                await msalInstance.handleRedirectPromise();
+                log('✅ Redirect promise handled', 'success');
+                
+                // Check existing accounts
+                const accounts = msalInstance.getAllAccounts();
+                log(`👥 Found ${accounts.length} existing accounts`);
+                
+                if (accounts.length > 0) {
+                    log(`👤 Existing account: ${accounts[0].username}`, 'success');
+                    msalInstance.setActiveAccount(accounts[0]);
+                    
+                    // Try silent token acquisition
+                    try {
+                        log('🔑 Attempting silent token acquisition...');
+                        const silentRequest = {
+                            scopes: ["https://graph.microsoft.com/User.Read"],
+                            account: accounts[0]
+                        };
+                        const response = await msalInstance.acquireTokenSilent(silentRequest);
+                        log('✅ Silent token acquired successfully!', 'success');
+                        log(`🎫 Access token: ${response.accessToken.substring(0, 50)}...`);
+                        return;
+                    } catch (silentError) {
+                        log(`⚠️ Silent acquisition failed: ${silentError.message}`);
+                    }
+                }
+                
+                // Popup login
+                log('🖥️ Starting popup login...');
+                
+                const loginRequest = {
+                    scopes: ["https://graph.microsoft.com/User.Read"],
+                    prompt: "select_account"
+                };
+                
+                const response = await msalInstance.loginPopup(loginRequest);
+                
+                log('🎉 Login successful!', 'success');
+                log(`👤 User: ${response.account.username}`, 'success');
+                log(`🎫 Access token: ${response.accessToken.substring(0, 50)}...`, 'success');
+                
+                // Set active account
+                msalInstance.setActiveAccount(response.account);
+                log('✅ Active account set', 'success');
+                
+            } catch (error) {
+                log(`❌ Test failed: ${error.message}`, 'error');
+                log(`📄 Error details: ${JSON.stringify(error, null, 2)}`, 'error');
+            }
+        };
+    </script>
+</body>
+</html>

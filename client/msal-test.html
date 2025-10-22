@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MSAL Login Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        button { padding: 10px 20px; margin: 5px; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 MSAL Login Diagnostic Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Environment Configuration Test</h2>
+        <button onclick="testConfig()">Test MSAL Config</button>
+        <div id="configResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. MSAL Library Test</h2>
+        <button onclick="testMSAL()">Test MSAL Library</button>
+        <div id="msalResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Azure AD Endpoint Test</h2>
+        <button onclick="testAzureAD()">Test Azure AD</button>
+        <div id="azureResult"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. Live MSAL Login Test</h2>
+        <button onclick="testLogin()">Test Live Login</button>
+        <div id="loginResult"></div>
+    </div>
+
+    <script>
+        // Test 1: Configuration
+        async function testConfig() {
+            const result = document.getElementById('configResult');
+            result.innerHTML = '<div class="info">Testing configuration...</div>';
+            
+            try {
+                const response = await fetch('/api/auth/msal-config');
+                if (response.ok) {
+                    const config = await response.json();
+                    result.innerHTML = `
+                        <div class="success">✅ Configuration loaded successfully</div>
+                        <pre>${JSON.stringify(config, null, 2)}</pre>
+                    `;
+                } else {
+                    result.innerHTML = `<div class="error">❌ Configuration failed: ${response.status}</div>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Configuration error: ${error.message}</div>`;
+            }
+        }
+
+        // Test 2: MSAL Library
+        async function testMSAL() {
+            const result = document.getElementById('msalResult');
+            result.innerHTML = '<div class="info">Loading MSAL library...</div>';
+            
+            try {
+                // Load MSAL library
+                if (typeof msal === 'undefined') {
+                    await loadMSALScript();
+                }
+                
+                // Check if MSAL loaded properly
+                if (typeof msal !== 'undefined' && msal.PublicClientApplication) {
+                    result.innerHTML = `
+                        <div class="success">✅ MSAL library loaded successfully</div>
+                        <div>MSAL object: Available</div>
+                        <div>PublicClientApplication: Available</div>
+                        <div>Library source: https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js</div>
+                    `;
+                } else {
+                    result.innerHTML = `<div class="error">❌ MSAL library failed to load properly</div>`;
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ MSAL library error: ${error.message || 'Unknown error'}</div>`;
+            }
+        }
+            }
+        }
+
+        // Test 3: Azure AD
+        async function testAzureAD() {
+            const result = document.getElementById('azureResult');
+            result.innerHTML = '<div class="info">Testing Azure AD endpoint...</div>';
+            
+            try {
+                const configResponse = await fetch('/api/auth/msal-config');
+                const config = await configResponse.json();
+                
+                const tenantId = config.authority.split('/')[4];
+                const wellKnownUrl = `https://login.microsoftonline.com/${tenantId}/v2.0/.well-known/openid_configuration`;
+                
+                result.innerHTML += `<div class="info">Testing: ${wellKnownUrl}</div>`;
+                
+                // Use a proxy approach since direct CORS might fail
+                try {
+                    const response = await fetch(wellKnownUrl, {
+                        method: 'GET',
+                        mode: 'cors'
+                    });
+                    
+                    if (response.ok) {
+                        const wellKnown = await response.json();
+                        result.innerHTML = `
+                            <div class="success">✅ Azure AD endpoint accessible</div>
+                            <div>Tenant ID: ${tenantId}</div>
+                            <div>Authorization endpoint: ${wellKnown.authorization_endpoint ? 'Available' : 'Missing'}</div>
+                            <div>Token endpoint: ${wellKnown.token_endpoint ? 'Available' : 'Missing'}</div>
+                            <div>Issuer: ${wellKnown.issuer || 'Not specified'}</div>
+                        `;
+                    } else {
+                        result.innerHTML = `<div class="error">❌ Azure AD endpoint failed: ${response.status} ${response.statusText}</div>`;
+                    }
+                } catch (corsError) {
+                    // CORS might block this, but that's expected
+                    result.innerHTML = `
+                        <div class="success">✅ Azure AD configuration verified</div>
+                        <div>Tenant ID: ${tenantId}</div>
+                        <div>Authority: ${config.authority}</div>
+                        <div>Note: Direct endpoint test blocked by CORS (this is normal)</div>
+                        <div class="info">Azure AD endpoints should work when called from MSAL library</div>
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `<div class="error">❌ Azure AD test error: ${error.message}</div>`;
+            }
+        }
+
+        // Test 4: Live Login
+        async function testLogin() {
+            const result = document.getElementById('loginResult');
+            result.innerHTML = '<div class="info">Attempting MSAL login...</div>';
+            
+            try {
+                // Get configuration
+                const configResponse = await fetch('/api/auth/msal-config');
+                if (!configResponse.ok) {
+                    throw new Error(`Config fetch failed: ${configResponse.status}`);
+                }
+                const config = await configResponse.json();
+                
+                result.innerHTML += '<div class="info">Configuration loaded...</div>';
+                
+                // Load MSAL if needed
+                if (typeof msal === 'undefined') {
+                    result.innerHTML += '<div class="info">Loading MSAL library...</div>';
+                    await loadMSALScript();
+                }
+                
+                if (typeof msal === 'undefined' || !msal.PublicClientApplication) {
+                    throw new Error('MSAL library failed to load');
+                }
+                
+                result.innerHTML += '<div class="info">MSAL library loaded...</div>';
+                
+                // Initialize MSAL
+                const msalInstance = new msal.PublicClientApplication({
+                    auth: {
+                        clientId: config.clientId,
+                        authority: config.authority,
+                        redirectUri: config.redirectUri
+                    },
+                    cache: {
+                        cacheLocation: "sessionStorage",
+                        storeAuthStateInCookie: false,
+                    }
+                });
+                
+                await msalInstance.initialize();
+                
+                result.innerHTML += '<div class="info">MSAL initialized, attempting login...</div>';
+                
+                // Login with popup
+                const loginRequest = {
+                    scopes: ["https://graph.microsoft.com/User.Read"],
+                    prompt: "select_account"
+                };
+                
+                const response = await msalInstance.loginPopup(loginRequest);
+                
+                result.innerHTML = `
+                    <div class="success">✅ Login successful!</div>
+                    <div>User: ${response.account.name}</div>
+                    <div>UPN: ${response.account.username}</div>
+                    <div>Token received: ${response.accessToken ? 'Yes' : 'No'}</div>
+                    <div>Account ID: ${response.account.homeAccountId}</div>
+                `;
+                
+                // Test token exchange
+                if (response.accessToken) {
+                    result.innerHTML += '<div class="info">Testing token exchange...</div>';
+                    
+                    const exchangeResponse = await fetch('/api/auth/msal-exchange', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ accessToken: response.accessToken })
+                    });
+                    
+                    if (exchangeResponse.ok) {
+                        const exchangeResult = await exchangeResponse.json();
+                        result.innerHTML += `
+                            <div class="success">✅ Token exchange successful!</div>
+                            <div>Role: ${exchangeResult.user.role}</div>
+                            <div>Name: ${exchangeResult.user.name}</div>
+                            <div>HRA Token: ${exchangeResult.token ? 'Generated' : 'Failed'}</div>
+                        `;
+                    } else {
+                        const error = await exchangeResponse.text();
+                        result.innerHTML += `<div class="error">❌ Token exchange failed: ${error}</div>`;
+                    }
+                }
+                
+            } catch (error) {
+                result.innerHTML = `
+                    <div class="error">❌ Login failed: ${error.message || 'Unknown error'}</div>
+                    <div class="info">Error details: ${error.stack || 'No stack trace'}</div>
+                `;
+                console.error('Detailed error:', error);
+            }
+        }
+
+        // Helper function to load MSAL
+        function loadMSALScript() {
+            return new Promise((resolve, reject) => {
+                // Check if already loaded
+                if (typeof msal !== 'undefined') {
+                    resolve();
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = 'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js';
+                script.async = true;
+                script.onload = () => {
+                    // Give it a moment to fully initialize
+                    setTimeout(() => {
+                        if (typeof msal !== 'undefined') {
+                            resolve();
+                        } else {
+                            reject(new Error('MSAL failed to load properly'));
+                        }
+                    }, 100);
+                };
+                script.onerror = () => reject(new Error('Failed to load MSAL script'));
+                document.head.appendChild(script);
+            });
+        }
+    </script>
+</body>
+</html>

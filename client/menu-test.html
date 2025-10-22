@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HRA Menu Test</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .test-container { 
+            padding: 20px; 
+            background: white; 
+            margin: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        .test-button:hover { background: #0052a3; }
+        pre { 
+            background: #f5f5f5; 
+            padding: 15px; 
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <!-- Include the same header structure as main app -->
+    <header>
+        <div class="header-content">
+            <h1>HRA Menu Test - Bedömning av högriskarbete</h1>
+            <button id="mobileMenuToggle" class="mobile-menu-toggle" aria-label="Toggle menu">
+                <span class="hamburger"></span>
+                <span class="hamburger"></span>
+                <span class="hamburger"></span>
+            </button>
+        </div>
+        <nav id="nav" class="hidden">
+            <button data-view="form">Ny bedömning</button>
+            <button data-view="mine">Mina</button>
+            <button data-view="dash" class="role-sup hidden">Dashboard</button>
+            <button data-view="users" class="role-admin hidden">Användare</button>
+            <button onclick="window.open('information.html', '_blank')">ℹ️ Info</button>
+            <button id="logout" class="right">Logga ut</button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Mock view sections -->
+        <section id="formView" class="hidden">Form View</section>
+        <section id="mineView" class="hidden">Mine View</section>
+        <section id="dashView" class="hidden">Dashboard View</section>
+        <section id="usersView" class="hidden">Users View</section>
+
+        <div class="test-container">
+            <h2>🧪 HRA Menu Functionality Test</h2>
+            <p>This page tests all menu functionality including mobile menu, navigation, and logout.</p>
+            
+            <div>
+                <button class="test-button" onclick="showNav()">Show Navigation</button>
+                <button class="test-button" onclick="testMobileMenu()">Test Mobile Menu</button>
+                <button class="test-button" onclick="testNavigation()">Test Navigation</button>
+                <button class="test-button" onclick="testLogout()">Test Logout</button>
+                <button class="test-button" onclick="runFullTest()">Run All Tests</button>
+            </div>
+            
+            <h3>Test Results:</h3>
+            <pre id="testResults">Click "Run All Tests" to start testing...</pre>
+        </div>
+    </main>
+
+    <script src="menu-test.js"></script>
+    <script>
+        // Mock navigation functions for testing
+        function renderForm() { console.log('renderForm called'); }
+        function loadMine() { console.log('loadMine called'); }
+        function loadDash() { console.log('loadDash called'); }
+        function loadUsers() { console.log('loadUsers called'); }
+        function show(view) { 
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden'));
+            const target = document.querySelector(view);
+            if (target) target.classList.remove('hidden');
+            console.log('show called with:', view); 
+        }
+
+        // Initialize mobile menu functionality (simplified version)
+        function initMobileMenu() {
+            const toggle = document.getElementById('mobileMenuToggle');
+            const nav = document.getElementById('nav');
+            
+            if (toggle && nav) {
+                toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    nav.classList.toggle('show');
+                    toggle.classList.toggle('active');
+                });
+
+                document.addEventListener('click', (e) => {
+                    if (!toggle.contains(e.target) && !nav.contains(e.target) && window.innerWidth <= 768) {
+                        nav.classList.remove('show');
+                        toggle.classList.remove('active');
+                    }
+                });
+            }
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            initMobileMenu();
+            
+            // Setup navigation
+            const nav = document.getElementById('nav');
+            nav.addEventListener('click', (e) => {
+                if (e.target.dataset.view) {
+                    const v = e.target.dataset.view;
+                    if (v === 'form') renderForm();
+                    if (v === 'mine') loadMine();
+                    if (v === 'dash') loadDash();
+                    if (v === 'users') loadUsers();
+                    show('#' + v + 'View');
+                    
+                    // Close mobile menu after navigation
+                    if (window.innerWidth <= 768) {
+                        nav.classList.remove('show');
+                        document.getElementById('mobileMenuToggle').classList.remove('active');
+                    }
+                }
+            });
+
+            // Setup logout
+            document.getElementById('logout').onclick = () => {
+                console.log('Logout clicked');
+                localStorage.removeItem('auth');
+                alert('Logout successful! (This is a test)');
+            };
+        });
+
+        // Test functions
+        function showNav() {
+            document.getElementById('nav').classList.remove('hidden');
+            document.querySelector('.role-sup').classList.remove('hidden');
+            document.querySelector('.role-admin').classList.remove('hidden');
+        }
+
+        function testMobileMenu() {
+            const results = document.getElementById('testResults');
+            results.textContent = 'Testing mobile menu...';
+            
+            const toggle = document.getElementById('mobileMenuToggle');
+            const nav = document.getElementById('nav');
+            
+            // Simulate mobile width
+            Object.defineProperty(window, 'innerWidth', { value: 500, configurable: true });
+            
+            toggle.click();
+            setTimeout(() => {
+                const hasShow = nav.classList.contains('show');
+                const hasActive = toggle.classList.contains('active');
+                results.textContent = `Mobile Menu Test:\n✅ Menu opened: ${hasShow}\n✅ Toggle active: ${hasActive}`;
+            }, 100);
+        }
+
+        function testNavigation() {
+            const results = document.getElementById('testResults');
+            results.textContent = 'Testing navigation...';
+            
+            const buttons = document.querySelectorAll('button[data-view]');
+            let testResults = 'Navigation Test:\n';
+            
+            buttons.forEach(btn => {
+                const view = btn.dataset.view;
+                testResults += `✅ ${view} button: Found\n`;
+            });
+            
+            results.textContent = testResults;
+        }
+
+        function testLogout() {
+            const results = document.getElementById('testResults');
+            const logoutBtn = document.getElementById('logout');
+            
+            if (logoutBtn && logoutBtn.onclick) {
+                results.textContent = 'Logout Test:\n✅ Logout button found\n✅ Onclick handler defined\nClick logout button to test functionality';
+            } else {
+                results.textContent = 'Logout Test:\n❌ Logout button or handler missing';
+            }
+        }
+
+        function runFullTest() {
+            const results = document.getElementById('testResults');
+            results.textContent = 'Running full test suite...\n';
+            
+            // Capture console output
+            const originalLog = console.log;
+            let testOutput = '';
+            
+            console.log = (...args) => {
+                testOutput += args.join(' ') + '\n';
+                originalLog(...args);
+            };
+            
+            // Run tests
+            showNav();
+            menuTest.runAllTests();
+            
+            setTimeout(() => {
+                console.log = originalLog;
+                results.textContent = testOutput;
+            }, 500);
+        }
+    </script>
+</body>
+</html>

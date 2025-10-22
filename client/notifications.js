@@ -140,6 +140,9 @@ class NotificationSystem {
         const timeAgo = this.getTimeAgo(notification.created_at);
         const typeIcon = this.getTypeIcon(notification.type);
         
+        // Add approval buttons for pending assessments if user has permission
+        const approvalButtons = this.getApprovalButtons(notification);
+        
         return `
             <div class="notification-item ${notification.read ? 'read' : 'unread'}" 
                  data-id="${notification.id}" 
@@ -151,12 +154,121 @@ class NotificationSystem {
                     <div class="notification-title">${notification.title}</div>
                     <div class="notification-message">${notification.message}</div>
                     <div class="notification-time">${timeAgo}</div>
+                    ${approvalButtons}
                 </div>
                 ${!notification.read ? '<div class="unread-indicator"></div>' : ''}
             </div>
         `;
     }
 
+    async approveAssessment(assessmentId, notificationId) {
+        try {
+            const auth = JSON.parse(localStorage.getItem('auth') || 'null');
+            if (!auth || !auth.t) {
+                window.showNotification('Inte inloggad', 'error');
+                return;
+            }
+            
+            const response = await fetch(`/api/assessments/${assessmentId}/approve`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': 'Bearer ' + auth.t,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                window.showNotification('Riskbedömning godkänd!', 'success');
+                // Mark notification as read and refresh
+                await this.markAsRead(notificationId);
+                this.fetchNotifications();
+                
+                // Refresh dashboard if visible
+                if (typeof loadDash === 'function') {
+                    loadDash();
+                }
+            } else {
+                const error = await response.json();
+                window.showNotification(error.error || 'Fel vid godkännande', 'error');
+            }
+        } catch (error) {
+            console.error('Error approving assessment:', error);
+            window.showNotification('Fel vid godkännande', 'error');
+        }
+    }
+    
+    async rejectAssessment(assessmentId, notificationId) {
+        const reason = prompt('Anledning till avvisning (valfritt):');
+        if (reason === null) return; // User cancelled
+        
+        try {
+            const auth = JSON.parse(localStorage.getItem('auth') || 'null');
+            if (!auth || !auth.t) {
+                window.showNotification('Inte inloggad', 'error');
+                return;
+            }
+            
+            const response = await fetch(`/api/assessments/${assessmentId}/reject`, {
+                method: 'POST',
+                headers: { 
+                    'Authorization': 'Bearer ' + auth.t,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reason: reason.trim() })
+            });
+            
+            if (response.ok) {
+                window.showNotification('Riskbedömning avvisad', 'success');
+                // Mark notification as read and refresh
+                await this.markAsRead(notificationId);
+                this.fetchNotifications();
+                
+                // Refresh dashboard if visible
+                if (typeof loadDash === 'function') {
+                    loadDash();
+                }
+            } else {
+                const error = await response.json();
+                window.showNotification(error.error || 'Fel vid avvisning', 'error');
+            }
+        } catch (error) {
+            console.error('Error rejecting assessment:', error);
+            window.showNotification('Fel vid avvisning', 'error');
+        }
+    }
+    
+    viewAssessment(assessmentId) {
+        // Show assessment details in a modal or navigate to assessment view
+        window.showNotification(`Visar riskbedömning ${assessmentId}`, 'info');
+        // TODO: Implement assessment viewer modal
+    }
+    
+    getApprovalButtons(notification) {
+        // Only show approval buttons for pending assessments to users with permission
+        if (notification.type !== 'assessment_pending') return '';
+        
+        // Check if user has permission to approve (arbetsledare, supervisor, superintendent, admin)
+        const auth = JSON.parse(localStorage.getItem('auth') || 'null');
+        if (!auth || !auth.r) return '';
+        
+        const canApprove = ['arbetsledare', 'supervisor', 'superintendent', 'admin'].includes(auth.r);
+        if (!canApprove) return '';
+        
+        return `
+            <div class="approval-buttons" onclick="event.stopPropagation()">
+                <button class="approve-btn" onclick="notificationSystem.approveAssessment(${notification.assessment_id}, ${notification.id})">
+                    ✅ Godkänn
+                </button>
+                <button class="reject-btn" onclick="notificationSystem.rejectAssessment(${notification.assessment_id}, ${notification.id})">
+                    ❌ Avvisa
+                </button>
+                <button class="view-btn" onclick="notificationSystem.viewAssessment(${notification.assessment_id})">
+                    👁️ Visa
+                </button>
+            </div>
+        `;
+    }
+    
     getTypeIcon(type) {
         const icons = {
             'assessment_pending': '⏳',

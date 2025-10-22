@@ -2,19 +2,84 @@ const API = location.origin;  // same origin
 let token=null, role=null, name=null;
 
 const $ = s => document.querySelector(s);
-const show = id => { document.querySelectorAll("main > section").forEach(x=>x.classList.add("hidden")); $(id).classList.remove("hidden"); };
-const nav = $("#nav"); const loginView = $("#loginView");
+const show = id => { 
+  console.log('🎨 Show function called with ID:', id);
+  const sections = document.querySelectorAll("main > section");
+  console.log('🎨 Found sections:', sections.length);
+  sections.forEach(x=>x.classList.add("hidden")); 
+  const targetSection = $(id);
+  console.log('🎨 Target section:', targetSection);
+  if (targetSection) {
+    targetSection.classList.remove("hidden");
+    console.log('✅ Successfully showed:', id);
+  } else {
+    console.log('❌ Target section not found:', id);
+  }
+};
+
+// Define nav and views globally to ensure accessibility
+let nav, loginView;
 const views = { form:"#formView", mine:"#mineView", dash:"#dashView", users:"#usersView" };
+
+// Initialize navigation event handling
+function initNavigation() {
+  nav = $("#nav"); 
+  loginView = $("#loginView");
+  console.log('🎯 Navigation initialized:', {nav: !!nav, loginView: !!loginView});
+  
+  if (nav) {
+    // nav events
+    nav.addEventListener("click", e=>{
+      console.log('🔄 Nav clicked:', e.target);
+      console.log('🔄 Dataset view:', e.target.dataset.view);
+      if(e.target.dataset.view){
+        const v = e.target.dataset.view;
+        console.log('🔄 View to load:', v);
+        console.log('🔄 Views object:', views);
+        console.log('🔄 Target view ID:', views[v]);
+        if(v==="form") {
+          console.log('📝 Loading form');
+          renderForm();
+        }
+        if(v==="mine") {
+          console.log('📋 Loading mine');
+          loadMine();
+        }
+        if(v==="dash") {
+          console.log('📊 Loading dashboard');
+          loadDash();
+        }
+        if(v==="users") {
+          console.log('👥 Loading users');
+          loadUsers();
+        }
+        show(views[v]);
+        
+        // Close mobile menu after navigation (if on mobile)
+        if (window.innerWidth <= 768) {
+          const mobileToggle = $('#mobileMenuToggle') || $('.mobile-menu-toggle');
+          if (mobileToggle) {
+            nav.classList.remove('show');
+            mobileToggle.classList.remove('active');
+          }
+        }
+      }
+    });
+    console.log('✅ Navigation event listener attached');
+  } else {
+    console.log('❌ Navigation element not found');
+  }
+}
 
 // Mobile menu functionality
 function initMobileMenu() {
-  const mobileMenuToggle = $('.mobile-menu-toggle');
+  const mobileMenuToggle = $('#mobileMenuToggle') || $('.mobile-menu-toggle');
   const navMenu = $('#nav');
   
   if (mobileMenuToggle && navMenu) {
     // Remove any existing listeners to prevent duplicates
     mobileMenuToggle.replaceWith(mobileMenuToggle.cloneNode(true));
-    const newToggle = $('.mobile-menu-toggle');
+    const newToggle = $('#mobileMenuToggle') || $('.mobile-menu-toggle');
     
     newToggle.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -40,29 +105,146 @@ function initMobileMenu() {
   }
 }
 
-// Initialize mobile menu when DOM is ready
-document.addEventListener('DOMContentLoaded', initMobileMenu);
+// Initialize after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 DOM ready, initializing app');
+  
+  // Initialize navigation references
+  nav = $("#nav"); 
+  loginView = $("#loginView");
+  console.log('🎯 UI references initialized:', {nav: !!nav, loginView: !!loginView});
+  
+  // Set up navigation event handling
+  if (nav) {
+    nav.addEventListener("click", e=>{
+      console.log('🔄 Nav clicked:', e.target);
+      console.log('🔄 Dataset view:', e.target.dataset.view);
+      if(e.target.dataset.view){
+        const v = e.target.dataset.view;
+        console.log('🔄 View to load:', v);
+        console.log('🔄 Views object:', views);
+        console.log('🔄 Target view ID:', views[v]);
+        if(v==="form") {
+          console.log('📝 Loading form');
+          renderForm();
+        }
+        if(v==="mine") {
+          console.log('📋 Loading mine');
+          loadMine();
+        }
+        if(v==="dash") {
+          console.log('📊 Loading dashboard');
+          loadDash();
+        }
+        if(v==="users") {
+          console.log('👥 Loading users');
+          loadUsers();
+        }
+        show(views[v]);
+        
+        // Close mobile menu after navigation (if on mobile)
+        if (window.innerWidth <= 768) {
+          const mobileToggle = $('#mobileMenuToggle') || $('.mobile-menu-toggle');
+          if (mobileToggle) {
+            nav.classList.remove('show');
+            mobileToggle.classList.remove('active');
+          }
+        }
+      }
+    });
+    console.log('✅ Navigation event listener attached');
+  }
+  
+  // Load authentication state after nav is ready
+  loadAuth();
+  
+  // Reinitialize event handlers
+  const logoutBtn = $("#logout");
+  if (logoutBtn) {
+    logoutBtn.onclick = ()=> { 
+      console.log('🚪 Logout button clicked');
+      if (window.notificationSystem) {
+        window.notificationSystem.cleanup();
+        window.notificationSystem = null;
+      }
+      localStorage.removeItem("auth"); 
+      console.log('🚪 Auth removed, reloading page');
+      location.reload(); 
+    };
+    console.log('🚪 Logout handler bound');
+  }
+  
+  const loginBtn = $("#loginBtn");
+  if (loginBtn) {
+    loginBtn.onclick = async ()=>{
+      console.log('🔑 Login button clicked');
+      $("#loginMsg").classList.add("hidden");
+      const body = { username: $("#lu").value.trim(), password: $("#lp").value };
+      const res = await fetch(API+"/api/auth/login",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const js = await res.json();
+      if(!res.ok){ $("#loginMsg").textContent=js.error||"Fel"; $("#loginMsg").classList.remove("hidden"); return; }
+      setAuth(js.token, js.role, js.name);
+      
+      // Initialize notification system on login
+      if (!window.notificationSystem) {
+        window.notificationSystem = new NotificationSystem();
+      }
+      
+      renderForm(); show(views.form);
+    };
+    console.log('🔑 Login handler bound');
+  }
+  
+  // Initialize mobile menu
+  initMobileMenu();
+});
 
 // --- auth ---
 function setAuth(t, r, n){
+  console.log('🔐 setAuth called:', {token: t?.substring(0,10)+'...', role: r, name: n});
   token=t; role=r; name=n;
   localStorage.setItem("auth", JSON.stringify({t,r,n}));
+  console.log('🔐 Showing navigation menu');
   nav.classList.remove("hidden");
-  $(".role-sup").classList.toggle("hidden", !(role==="supervisor"||role==="superintendent"||role==="admin"));
+  $(".role-sup").classList.toggle("hidden", !(role==="supervisor"||role==="superintendent"||role==="admin"||role==="arbetsledare"));
   $(".role-admin").classList.toggle("hidden", role!=="admin");
   loginView.classList.add("hidden");
+  console.log('🔐 Menu should now be visible');
   
   // Initialize mobile menu after showing nav
   setTimeout(initMobileMenu, 100);
 }
 function loadAuth(){
+  console.log('🔐 loadAuth called');
+  
+  // Ensure nav is initialized
+  if (!nav) {
+    nav = $("#nav");
+    loginView = $("#loginView");
+  }
+  
   const a = JSON.parse(localStorage.getItem("auth")||"null");
-  if(!a) return;
+  console.log('🔐 Stored auth:', a);
+  if(!a) {
+    console.log('🔐 No stored auth found');
+    return;
+  }
   token=a.t; role=a.r; name=a.n;
-  nav.classList.remove("hidden");
+  console.log('🔐 Loaded auth:', {role, name});
+  
+  if (nav) {
+    nav.classList.remove("hidden");
+    console.log('🔐 Navigation menu shown');
+  }
+  
   $(".role-sup").classList.toggle("hidden", !(role==="supervisor"||role==="superintendent"||role==="admin"||role==="arbetsledare"));
   $(".role-admin").classList.toggle("hidden", role!=="admin");
-  loginView.classList.add("hidden");
+  
+  if (loginView) {
+    loginView.classList.add("hidden");
+  }
+  
+  console.log('🔐 Auth loaded, menu should be visible');
   
   // Initialize notification system for logged in users
   if (!window.notificationSystem) {
@@ -72,52 +254,6 @@ function loadAuth(){
   // Initialize mobile menu after showing nav
   setTimeout(initMobileMenu, 100);
 }
-loadAuth();
-
-// nav events
-nav.addEventListener("click", e=>{
-  if(e.target.dataset.view){
-    const v = e.target.dataset.view;
-    if(v==="form") renderForm();
-    if(v==="mine") loadMine();
-    if(v==="dash") loadDash();
-    if(v==="users") loadUsers();
-    show(views[v]);
-    
-    // Close mobile menu after navigation (if on mobile)
-    if (window.innerWidth <= 768) {
-      const mobileToggle = $('.mobile-menu-toggle');
-      if (mobileToggle) {
-        nav.classList.remove('show');
-        mobileToggle.classList.remove('active');
-      }
-    }
-  }
-});
-$("#logout").onclick = ()=>{ 
-  if (window.notificationSystem) {
-    window.notificationSystem.cleanup();
-    window.notificationSystem = null;
-  }
-  localStorage.removeItem("auth"); 
-  location.reload(); 
-};
-
-$("#loginBtn").onclick = async ()=>{
-  $("#loginMsg").classList.add("hidden");
-  const body = { username: $("#lu").value.trim(), password: $("#lp").value };
-  const res = await fetch(API+"/api/auth/login",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const js = await res.json();
-  if(!res.ok){ $("#loginMsg").textContent=js.error||"Fel"; $("#loginMsg").classList.remove("hidden"); return; }
-  setAuth(js.token, js.role, js.name);
-  
-  // Initialize notification system on login
-  if (!window.notificationSystem) {
-    window.notificationSystem = new NotificationSystem();
-  }
-  
-  renderForm(); show(views.form);
-};
 
 // MSAL Authentication
 let msalConfig = null;
@@ -139,89 +275,521 @@ async function loadMSALConfig() {
 // MSAL Login Button
 $("#msalLoginBtn").onclick = async () => {
   try {
+    console.log('🔑 MSAL login attempt started');
     $("#loginMsg").classList.add("hidden");
     
     // Check if MSAL is configured
     if (!msalConfig && !(await loadMSALConfig())) {
-      $("#loginMsg").textContent = "Microsoft autentisering inte konfigurerad";
+      $("#loginMsg").textContent = "Microsoft-inloggning inte tillgänglig: Konfiguration saknas";
+      $("#loginMsg").classList.remove("hidden");
+      console.error('❌ MSAL configuration failed to load');
+      return;
+    }
+    
+    console.log('🔧 MSAL Config:', {
+      clientId: msalConfig.clientId,
+      authority: msalConfig.authority,
+      redirectUri: msalConfig.redirectUri
+    });
+    
+    // Test network connectivity first
+    const networkStatus = await testNetworkConnectivity();
+    console.log('🌐 Network test result:', networkStatus);
+    
+    console.log('🔍 MSAL config loaded, attempting to load library...');
+    
+    // Load MSAL library dynamically with timeout
+    try {
+      await Promise.race([
+        loadMSALScript(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('MSAL load timeout after 30 seconds')), 30000))
+      ]);
+    } catch (loadError) {
+      console.error('❌ MSAL library load failed:', loadError);
+      
+      // Provide helpful network diagnostics with actionable guidance
+      if (networkStatus.every(result => result.status === 'blocked')) {
+        $("#loginMsg").innerHTML = `
+          <strong>Microsoft-inloggning inte tillgänglig</strong><br>
+          <small>Nätverket/brandvägg blockerar Microsoft-tjänster.<br>
+          Använd traditionell inloggning med användarnamn och lösenord nedan.</small>
+        `;
+      } else if (networkStatus.some(result => result.status === 'accessible')) {
+        $("#loginMsg").innerHTML = `
+          <strong>Microsoft-inloggning misslyckades</strong><br>
+          <small>Tekniskt fel: ${loadError.message}<br>
+          Använd traditionell inloggning nedan eller försök igen senare.</small>
+        `;
+      } else {
+        $("#loginMsg").innerHTML = `
+          <strong>Microsoft login är inte tillgänglig just nu</strong><br>
+          <small>Vänligen använd vanlig inloggning med användarnamn och lösenord.</small>
+        `;
+      }
+      
       $("#loginMsg").classList.remove("hidden");
       return;
     }
     
-    // Load MSAL library dynamically
-    if (typeof msal === 'undefined') {
-      await loadMSALScript();
-    }
+    console.log('✅ MSAL library loaded successfully');
     
-    // Initialize MSAL
+    // Initialize MSAL with proper configuration (following React patterns)
     const msalInstance = new msal.PublicClientApplication({
       auth: {
         clientId: msalConfig.clientId,
-        authority: msalConfig.authority,
-        redirectUri: msalConfig.redirectUri
+        authority: msalConfig.authority || `https://login.microsoftonline.com/${msalConfig.tenantId || 'common'}`,
+        redirectUri: window.location.origin,
+        postLogoutRedirectUri: window.location.origin,
+        navigateToLoginRequestUrl: false
       },
       cache: {
         cacheLocation: "sessionStorage",
         storeAuthStateInCookie: false,
+        secureCookies: false
+      },
+      system: {
+        allowNativeBroker: false, // Disable native broker for web
+        windowHashTimeout: 60000,
+        iframeHashTimeout: 6000,
+        loadFrameTimeout: 0,
+        asyncPopups: false, // Use synchronous popups
+        loggerOptions: {
+          loggerCallback: (level, message, containsPii) => {
+            if (containsPii) return;
+            console.log(`MSAL [${level}]: ${message}`);
+          },
+          logLevel: msal.LogLevel.Info,
+          piiLoggingEnabled: false
+        }
+      },
+      telemetry: {
+        application: {
+          appName: "HRA-Application",
+          appVersion: "1.0.0"
+        }
       }
     });
     
-    await msalInstance.initialize();
-    
-    // Login with popup
-    const loginRequest = {
-      scopes: ["https://graph.microsoft.com/User.Read"],
-      prompt: "select_account"
-    };
-    
-    const response = await msalInstance.loginPopup(loginRequest);
-    
-    // Exchange token with backend
-    const exchangeResponse = await fetch(API + "/api/auth/msal-exchange", {
-      method: "POST",
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ accessToken: response.accessToken })
+    // Add event callback (like React implementation)
+    msalInstance.addEventCallback((event) => {
+      console.log('🔔 MSAL Event received:', event.eventType, event);
+      
+      if (event.payload?.account) {
+        console.log('👤 MSAL Event:', event.eventType, 'Account:', event.payload.account.username);
+        msalInstance.setActiveAccount(event.payload.account);
+      } else {
+        console.log('🔍 MSAL Event:', event.eventType, 'No account in payload.');
+      }
+      
+      if (event.eventType === 'LOGIN_FAILURE' || event.eventType === 'ACQUIRE_TOKEN_FAILURE') {
+        console.error('❌ MSAL Error Event:', event.eventType, event.error);
+      }
+      
+      if (event.eventType === 'POPUP_OPENED') {
+        console.log('🪟 Popup opened for authentication');
+      }
+      
+      if (event.eventType === 'POPUP_CLOSED') {
+        console.log('🪟 Popup closed');
+      }
     });
     
-    const exchangeResult = await exchangeResponse.json();
+    // Handle redirect promise first (critical React pattern)
+    console.log('🔄 Handling redirect promise...');
+    const redirectResponse = await msalInstance.handleRedirectPromise();
     
-    if (!exchangeResponse.ok) {
-      $("#loginMsg").textContent = exchangeResult.error || "Autentisering misslyckades";
+    if (redirectResponse) {
+      console.log('🔄 Redirect response received:', redirectResponse.account?.username);
+      if (redirectResponse.account) {
+        msalInstance.setActiveAccount(redirectResponse.account);
+        await handleMSALSuccess(redirectResponse);
+        return;
+      }
+    }
+    
+    // Check for existing accounts (React pattern)
+    const accounts = msalInstance.getAllAccounts();
+    console.log('👤 Existing accounts found:', accounts.length);
+    
+    if (accounts.length > 0) {
+      console.log('👤 Using existing account:', accounts[0].username);
+      if (!msalInstance.getActiveAccount()) {
+        msalInstance.setActiveAccount(accounts[0]);
+      }
+      
+      // Try to get token silently for existing account
+      try {
+        const silentRequest = {
+          scopes: ["https://graph.microsoft.com/User.Read"],
+          account: accounts[0],
+          forceRefresh: false
+        };
+        const response = await msalInstance.acquireTokenSilent(silentRequest);
+        console.log('🔑 Silent token acquired successfully');
+        await handleMSALSuccess(response);
+        return;
+      } catch (silentError) {
+        console.log('⚠️ Silent token acquisition failed, continuing with popup');
+      }
+    }
+    
+    // Login with popup (fallback)
+    console.log('🚀 Starting MSAL popup login...');
+    
+    // Configure login request following React MSAL patterns
+    const loginRequest = {
+      scopes: ["https://graph.microsoft.com/User.Read"],
+      prompt: "select_account",
+      extraQueryParameters: {},
+      forceRefresh: false,
+      redirectUri: window.location.origin,
+      authority: msalConfig.authority
+    };
+    
+    console.log('🔧 Login request config:', loginRequest);
+    
+    try {
+      console.log('🔓 Starting MSAL popup login (React pattern)...');
+      
+      // Use the same pattern as React: direct popup call without pre-testing
+      const response = await msalInstance.loginPopup(loginRequest);
+      console.log('✅ Popup login successful:', response.account?.username);
+      
+      // Set active account (React pattern)
+      if (response.account) {
+        msalInstance.setActiveAccount(response.account);
+        console.log('👤 Active account set:', response.account.username);
+      }
+      
+      // Update UI to show success
+      $("#loginMsg").innerHTML = `
+        <strong>Inloggning lyckades!</strong><br>
+        <small>Loggar in som ${response.account?.username}...</small>
+      `;
+      $("#loginMsg").classList.remove("hidden");
+      
+      await handleMSALSuccess(response);
+      
+    } catch (popupError) {
+      console.error('❌ Popup login failed:', popupError);
+      
+      // Handle specific popup errors (React pattern)
+      let errorMessage = "Microsoft-inloggning misslyckades";
+      let errorDetails = popupError.message;
+      
+      if (popupError.errorCode === 'popup_window_error' || popupError.message?.includes('popup_window_error')) {
+        errorMessage = "Popup blockerad!";
+        errorDetails = "Tillåt popups för denna sida i webbläsarinställningar och försök igen.";
+      } else if (popupError.errorCode === 'user_cancelled' || popupError.message?.includes('user_cancelled')) {
+        errorMessage = "Inloggning avbruten";
+        errorDetails = "Du avbröt Microsoft-inloggningen. Försök igen eller använd vanlig inloggning nedan.";
+      } else if (popupError.errorCode === 'interaction_in_progress' || popupError.message?.includes('interaction_in_progress')) {
+        errorMessage = "Inloggning pågår redan";
+        errorDetails = "Vänta tills den aktuella inloggningen är klar eller ladda om sidan.";
+      } else if (popupError.message?.includes('network')) {
+        errorMessage = "Nätverksfel";
+        errorDetails = "Kontrollera internetanslutningen och försök igen.";
+      }
+      
+      $("#loginMsg").innerHTML = `
+        <strong>${errorMessage}</strong><br>
+        <small>${errorDetails}</small>
+      `;
+      
       $("#loginMsg").classList.remove("hidden");
       return;
     }
     
-    // Set authentication
-    setAuth(exchangeResult.token, exchangeResult.user.role, exchangeResult.user.name);
     
-    // Initialize notification system on login
-    if (!window.notificationSystem) {
-      window.notificationSystem = new NotificationSystem();
+    async function handleMSALSuccess(response) {
+      console.log('🎉 MSAL authentication successful, processing...');
+      
+      try {
+        // Show progress to user
+        $("#loginMsg").innerHTML = `
+          <strong>Autentisering lyckad!</strong><br>
+          <small>Utbyter token med servern...</small>
+        `;
+        $("#loginMsg").classList.remove("hidden");
+        
+        // Exchange token with backend
+        const exchangeResponse = await fetch(API + "/api/auth/msal-exchange", {
+          method: "POST",
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ 
+            accessToken: response.accessToken,
+            idToken: response.idToken,
+            account: response.account
+          })
+        });
+        
+        const exchangeResult = await exchangeResponse.json();
+        
+        if (!exchangeResponse.ok) {
+          throw new Error(exchangeResult.error || "Token exchange failed");
+        }
+        
+        console.log('✅ Token exchange successful');
+        
+        // Set authentication
+        setAuth(exchangeResult.token, exchangeResult.user.role, exchangeResult.user.name);
+        
+        // Show final success message
+        $("#loginMsg").innerHTML = `
+          <strong>Välkommen ${exchangeResult.user.name}!</strong><br>
+          <small>Laddar applikationen...</small>
+        `;
+        
+        // Initialize notification system on login
+        if (!window.notificationSystem) {
+          window.notificationSystem = new NotificationSystem();
+        }
+        
+        // Navigate to main app
+        setTimeout(() => {
+          renderForm(); 
+          show(views.form);
+        }, 1000);
+        
+      } catch (error) {
+        console.error('❌ Token exchange failed:', error);
+        $("#loginMsg").innerHTML = `
+          <strong>Serverfel</strong><br>
+          <small>${error.message || "Kunde inte utbyta token med servern"}</small>
+        `;
+        $("#loginMsg").classList.remove("hidden");
+      }
     }
-    
-    renderForm(); 
-    show(views.form);
     
   } catch (error) {
     console.error("MSAL login error:", error);
-    $("#loginMsg").textContent = "Inloggning misslyckades: " + error.message;
+    
+    // Provide user-friendly error messages based on error type
+    let errorMessage = "Microsoft login är inte tillgänglig just nu. Vänligen använd vanlig inloggning med användarnamn och lösenord.";
+    
+    if (error.message.includes('popup')) {
+      errorMessage = "Popup blockerad! Tillåt popups för denna sida och försök igen.";
+    } else if (error.message.includes('network') || error.message.includes('fetch')) {
+      errorMessage = "Nätverksfel: Kontrollera din internetanslutning och försök igen.";
+    } else if (error.message.includes('timeout')) {
+      errorMessage = "Microsoft-inloggning tog för lång tid. Försök igen eller använd vanlig inloggning.";
+    }
+    
+    $("#loginMsg").innerHTML = `
+      <strong>${errorMessage}</strong><br>
+      <small>Teknisk information: ${error.message}</small>
+    `;
     $("#loginMsg").classList.remove("hidden");
   }
 };
 
-// Load MSAL library dynamically
+// Update Microsoft login button status based on availability
+function updateMicrosoftLoginStatus(available, message = '') {
+  const msalBtn = $("#msalLoginBtn");
+  const networkStatus = $("#networkStatus");
+  const networkStatusText = $("#networkStatusText");
+  
+  if (available) {
+    msalBtn.disabled = false;
+    msalBtn.style.opacity = '1';
+    msalBtn.style.cursor = 'pointer';
+    networkStatusText.textContent = message || 'Microsoft-inloggning tillgänglig';
+    networkStatus.className = 'network-status success';
+    networkStatus.classList.remove('hidden');
+  } else {
+    msalBtn.disabled = true;
+    msalBtn.style.opacity = '0.6';
+    msalBtn.style.cursor = 'not-allowed';
+    networkStatusText.textContent = message || 'Microsoft-inloggning inte tillgänglig';
+    networkStatus.className = 'network-status error';
+    networkStatus.classList.remove('hidden');
+  }
+}
+
+// Test network connectivity to CDN sources
+async function testNetworkConnectivity() {
+  const testUrls = [
+    'https://alcdn.msauth.net',
+    'https://cdn.jsdelivr.net', 
+    'https://unpkg.com'
+  ];
+  
+  const results = [];
+  
+  for (const url of testUrls) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      await fetch(url + '/favicon.ico', { 
+        method: 'HEAD', 
+        signal: controller.signal,
+        mode: 'no-cors' 
+      });
+      
+      clearTimeout(timeoutId);
+      results.push({ url, status: 'accessible' });
+      console.log('✅ CDN accessible:', url);
+    } catch (error) {
+      results.push({ url, status: 'blocked', error: error.message });
+      console.log('❌ CDN blocked:', url, error.message);
+    }
+  }
+  
+  return results;
+}
+
+// Load MSAL library dynamically with fallback CDNs
 function loadMSALScript() {
   return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js';
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
+    // Check if already loaded
+    if (typeof msal !== 'undefined') {
+      console.log('🔒 MSAL already loaded');
+      resolve();
+      return;
+    }
+    
+    // List of CDN URLs to try (using latest stable version)
+    const cdnUrls = [
+      'https://alcdn.msauth.net/browser/3.0.0/js/msal-browser.min.js',
+      'https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.0.0/lib/msal-browser.min.js',
+      'https://unpkg.com/@azure/msal-browser@3.0.0/lib/msal-browser.min.js'
+    ];
+    
+    let currentIndex = 0;
+    
+    function tryLoadScript() {
+      if (currentIndex >= cdnUrls.length) {
+        console.log('⚠️ All MSAL CDN sources failed, using mock fallback');
+        // Use mock fallback
+        if (typeof msalMock !== 'undefined') {
+          window.msal = window.msalMock;
+          resolve();
+        } else {
+          reject(new Error('Failed to load MSAL script from all CDN sources and no mock available'));
+        }
+        return;
+      }
+      
+      const script = document.createElement('script');
+      script.src = cdnUrls[currentIndex];
+      script.async = true;
+      
+      console.log(`🔄 Trying MSAL CDN ${currentIndex + 1}/${cdnUrls.length}:`, script.src);
+      
+      const timeout = setTimeout(() => {
+        console.log('⏰ MSAL script load timeout, trying next CDN');
+        script.remove();
+        currentIndex++;
+        tryLoadScript();
+      }, 10000); // 10 second timeout
+      
+      script.onload = () => {
+        clearTimeout(timeout);
+        console.log('✅ MSAL script loaded, checking availability...');
+        
+        // Give it a moment to fully initialize
+        setTimeout(() => {
+          if (typeof msal !== 'undefined') {
+            console.log('✅ MSAL library ready');
+            resolve();
+          } else {
+            console.log('❌ MSAL object not available, trying next CDN');
+            currentIndex++;
+            tryLoadScript();
+          }
+        }, 200);
+      };
+      
+      script.onerror = () => {
+        clearTimeout(timeout);
+        console.log(`❌ Failed to load MSAL from CDN ${currentIndex + 1}, trying next...`);
+        currentIndex++;
+        tryLoadScript();
+      };
+      
+      document.head.appendChild(script);
+    }
+    
+    tryLoadScript();
   });
 }
 
 // Initialize MSAL configuration on page load
 loadMSALConfig();
+
+// Test network on page load and show status
+document.addEventListener('DOMContentLoaded', async () => {
+  // ... existing DOM ready code ...
+  
+  // Test Microsoft login availability and show status
+  setTimeout(async () => {
+    console.log('🔍 Testing Microsoft login availability...');
+    
+    // Test MSAL configuration availability
+    const configAvailable = msalConfig || await loadMSALConfig();
+    
+    if (!configAvailable) {
+      updateMicrosoftLoginStatus(false, 'Microsoft-konfiguration saknas');
+      return;
+    }
+    
+    // Test network connectivity
+    const networkStatus = await testNetworkConnectivity();
+    const accessibleCDNs = networkStatus.filter(r => r.status === 'accessible').length;
+    
+    if (accessibleCDNs === 0) {
+      updateMicrosoftLoginStatus(false, 'Nätverket blockerar Microsoft-tjänster');
+    } else if (accessibleCDNs < networkStatus.length) {
+      updateMicrosoftLoginStatus(true, `Begränsad Microsoft-inloggning (${accessibleCDNs}/${networkStatus.length} CDN:er tillgängliga)`);
+    } else {
+      updateMicrosoftLoginStatus(true, 'Microsoft-inloggning tillgänglig');
+    }
+    
+    // Also update the general network status display
+    updateNetworkStatusDisplay(networkStatus);
+  }, 1000);
+});
+
+// Update network status display
+function updateNetworkStatusDisplay(networkResults) {
+  const networkStatusDiv = $("#networkStatus");
+  const networkStatusText = $("#networkStatusText");
+  const testUserHints = $("#testUserHints");
+  
+  if (!networkStatusDiv || !networkStatusText) return;
+  
+  const accessibleCDNs = networkResults.filter(r => r.status === 'accessible').length;
+  const totalCDNs = networkResults.length;
+  
+  networkStatusDiv.classList.remove('hidden');
+  
+  if (accessibleCDNs === 0) {
+    networkStatusDiv.className = 'network-status blocked';
+    networkStatusText.textContent = 'Microsoft-inloggning blockerad (alla CDN:er otillgängliga)';
+    
+    // Show test user hints when MSAL is blocked
+    if (testUserHints) {
+      testUserHints.classList.remove('hidden');
+    }
+  } else if (accessibleCDNs < totalCDNs) {
+    networkStatusDiv.className = 'network-status';
+    networkStatusText.textContent = `Begränsad Microsoft-inloggning (${accessibleCDNs}/${totalCDNs} CDN:er tillgängliga)`;
+    
+    // Hide test user hints when some MSAL access is available
+    if (testUserHints) {
+      testUserHints.classList.add('hidden');
+    }
+  } else {
+    networkStatusDiv.className = 'network-status accessible';
+    networkStatusText.textContent = 'Microsoft-inloggning tillgänglig';
+    
+    // Hide test user hints when MSAL is fully available
+    if (testUserHints) {
+      testUserHints.classList.add('hidden');
+    }
+  }
+}
 
 // --- FORM (återanvänder logiken från MVP: risk & checklist) ---
 function formHTML(){
@@ -265,12 +833,10 @@ function formHTML(){
   </div>
 
   <h3>Godkännande</h3>
-  <div class="grid3">
+  <div class="grid1">
     <label>Kan arbetet utföras säkert?
       <select id="f_safe"><option>Ja</option><option>Nej</option></select>
     </label>
-    <label>Arbetsledare<input id="f_leader"></label>
-    <label>Signatur/Initialer<input id="f_sign"></input></label>
   </div>
 
   <div style="margin-top:10px">
@@ -307,46 +873,80 @@ function renderForm(){
   list.addEventListener("change",calc); calc();
 
   $("#f_submit").onclick = async ()=>{
-    const checklist = Q.map((_,i)=>$("#q"+i).value||"");
-    
-    // Get uploaded images if image upload manager is available
-    const uploadedImages = window.imageUploadManager ? window.imageUploadManager.getUploadedImages() : [];
-    
-    const body = {
-      date: $("#f_datum").value,
-      worker_name: $("#f_namn").value,
-      team: $("#f_team").value,
-      location: $("#f_plats").value,
-      task: $("#f_task").value,
-      risk_s: +$("#f_s").value, risk_k: +$("#f_k").value,
-      risks: $("#f_risks").value, checklist,
-      actions: $("#f_actions").value,
-      further: $("#f_further").value, fullrisk: $("#f_fullrisk").value,
-      safe: $("#f_safe").value,
-      leader: $("#f_leader").value, signature: $("#f_sign").value,
-      images: uploadedImages.map(img => ({
-        name: img.name,
-        size: img.size,
-        type: img.type,
-        url: img.url
-      }))
-    };
-    const res = await fetch(API+"/api/assessments",{method:"POST",
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body: JSON.stringify(body)});
-    const js = await res.json();
-    const msg=$("#f_msg");
-    if(!res.ok){ msg.className="warn"; msg.textContent=js.error||"Fel"; return; }
-    msg.className="ok"; msg.textContent=`Skickad. ID ${js.id}, risk=${js.riskScore}`;
-    
-    // Clear uploaded images after successful submission
-    if (window.imageUploadManager) {
-      window.imageUploadManager.clearImages();
-    }
-    
-    // Show success notification
-    if (window.showNotification) {
-      window.showNotification('Riskbedömning skickad framgångsrikt! 🎉', 'success');
+    try {
+      console.log('📝 Form submission started...');
+      
+      // Check if user is authenticated
+      if (!token) {
+        alert('Du måste logga in först!');
+        return;
+      }
+      
+      const checklist = Q.map((_,i)=>$("#q"+i).value||"");
+      
+      // Get uploaded images if image upload manager is available
+      const uploadedImages = window.imageUploadManager ? window.imageUploadManager.getUploadedImages() : [];
+      
+      const body = {
+        date: $("#f_datum").value,
+        worker_name: $("#f_namn").value,
+        team: $("#f_team").value,
+        location: $("#f_plats").value,
+        task: $("#f_task").value,
+        risk_s: +$("#f_s").value, risk_k: +$("#f_k").value,
+        risks: $("#f_risks").value, checklist,
+        actions: $("#f_actions").value,
+        further: $("#f_further").value, fullrisk: $("#f_fullrisk").value,
+        safe: $("#f_safe").value,
+        images: uploadedImages.map(img => ({
+          name: img.name,
+          size: img.size,
+          type: img.type,
+          url: img.url
+        }))
+      };
+      
+      console.log('📦 Sending data:', body);
+      console.log('🔗 API URL:', API + "/api/assessments");
+      
+      const res = await fetch(API+"/api/assessments",{method:"POST",
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body: JSON.stringify(body)});
+        
+      console.log('📡 Response status:', res.status, res.statusText);
+      
+      const js = await res.json();
+      console.log('📄 Response data:', js);
+      
+      const msg=$("#f_msg");
+      if(!res.ok){ 
+        console.error('❌ Server error:', js.error);
+        msg.className="warn"; 
+        msg.textContent=js.error||"Fel"; 
+        alert('Fel vid skickande: ' + (js.error || 'Okänt fel'));
+        return; 
+      }
+      
+      msg.className="ok"; msg.textContent=`Skickad. ID ${js.id}, risk=${js.riskScore}`;
+      
+      // Clear uploaded images after successful submission
+      if (window.imageUploadManager) {
+        window.imageUploadManager.clearImages();
+      }
+      
+      // Show success notification
+      if (window.showNotification) {
+        window.showNotification('Riskbedömning skickad framgångsrikt! 🎉', 'success');
+      }
+      
+      console.log('✅ Form submitted successfully!');
+      
+    } catch (error) {
+      console.error('💥 Form submission error:', error);
+      const msg=$("#f_msg");
+      msg.className="warn"; 
+      msg.textContent="Nätverksfel eller serverfel";
+      alert('Fel vid skickande: ' + error.message);
     }
   };
 }
